@@ -3,186 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dial-911 Simulator</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #map { height: 500px; margin: 20px auto; width: 90%; border: 2px solid #333; }
-        .menu { margin: 10px; padding: 10px; border: 1px solid #ccc; display: inline-block; background: #f8f8f8; }
-        button { margin: 5px; padding: 10px; background: #4CAF50; color: white; border: none; cursor: pointer; }
-        button:disabled { background: gray; cursor: not-allowed; }
-    </style>
+    <title>Emergency Services Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/leaflet"></script>
+    <script src="app.js" defer></script>
 </head>
 <body>
-    <h1>Dial-911 Simulator</h1>
-    <p id="funds">Funds: $5,000,000</p>
-    
-    <div class="menu">
-        <h2>Buy Buildings</h2>
-        <button onclick="startPlacing('Fire Station', 500000)">Fire Station ($500,000)</button>
-        <button onclick="startPlacing('Police Station', 400000)">Police Station ($400,000)</button>
-        <button onclick="startPlacing('Hospital', 600000)">Hospital ($600,000)</button>
-    </div>
-    
-    <div class="menu">
-        <h2>Buy Vehicles</h2>
-        <button onclick="buyItem(300000, 'Fire Engine')">Fire Engine ($300,000)</button>
-        <button onclick="buyItem(150000, 'Ambulance')">Ambulance ($150,000)</button>
-        <button onclick="buyItem(200000, 'Police Car')">Police Car ($200,000)</button>
+    <div class="header">
+        <h1>Emergency Services Simulator</h1>
+        <p>Funds: $<span id="funds">1000000</span></p>
     </div>
 
-    <div class="menu">
-        <h2>Dispatch Vehicles</h2>
-        <select id="vehicleSelect">
-            <option value="none">Select Vehicle</option>
-        </select>
-        <button onclick="dispatchVehicle()">Dispatch Vehicle</button>
-    </div>
-    
-    <div id="map"></div>
-    <div class="menu">
-        <h2>Current Missions</h2>
-        <ul id="missions"></ul>
+    <div class="controls">
+        <h2>Purchase Items</h2>
+        <button id="buyFireStation">Buy Fire Station ($500,000)</button>
+        <button id="buyAmbulance">Buy Ambulance ($200,000)</button>
     </div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <div id="map"></div> <!-- The map container -->
+
+    <div class="notifications">
+        <h3>Notifications</h3>
+        <ul id="notificationList"></ul>
+    </div>
+
     <script>
-        let playerFunds = localStorage.getItem("playerFunds") ? parseInt(localStorage.getItem("playerFunds")) + 1000000 : 5000000;
-        let buildings = JSON.parse(localStorage.getItem("buildings")) || [];
-        let missions = JSON.parse(localStorage.getItem("missions")) || [];
-        let vehicles = JSON.parse(localStorage.getItem("vehicles")) || [];
-        let placingItem = null;
-        let placingCost = 0;
-        const webhookUrl = "https://discord.com/api/webhooks/1346068583972605953/03oGQVvFgKzx9SnPPbIXmmAkB8sOt8jNoH2nYtRoSmmiqXuLbig8Vu6Muor5Ox2w685q";
-
-        function updateFunds() {
-            document.getElementById("funds").textContent = `Funds: $${playerFunds.toLocaleString()}`;
-            localStorage.setItem("playerFunds", playerFunds);
-        }
-        updateFunds();
-        
-        const map = L.map('map').setView([-37.8136, 144.9631], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-
-        function sendToDiscord(message) {
-            fetch(webhookUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content: message })
-            });
-        }
-
-        function getAddress(lat, lng, callback) {
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                .then(response => response.json())
-                .then(data => {
-                    callback(data.address.road + ", " + data.address.city);
-                })
-                .catch(() => callback("Unknown Location"));
-        }
-
-        function addMarker(lat, lng, label) {
-            L.marker([lat, lng]).addTo(map).bindPopup(label).openPopup();
-        }
-
-        function startPlacing(itemName, cost) {
-            if (playerFunds >= cost) {
-                placingItem = itemName;
-                placingCost = cost;
-                alert(`Click on the map to place your ${itemName}.`);
-            } else {
-                alert("Not enough funds!");
-            }
-        }
-
-        map.on('click', function (e) {
-            if (placingItem) {
-                playerFunds -= placingCost;
-                updateFunds();
-                addMarker(e.latlng.lat, e.latlng.lng, placingItem);
-                buildings.push({ lat: e.latlng.lat, lng: e.latlng.lng, name: placingItem });
-                saveGame();
-                sendToDiscord(`Player placed ${placingItem} at (${e.latlng.lat}, ${e.latlng.lng})`);
-                placingItem = null;
-            }
-        });
-
-        function buyItem(cost, name) {
-            if (playerFunds >= cost) {
-                playerFunds -= cost;
-                updateFunds();
-                vehicles.push(name);
-                updateVehicleSelect();
-                alert(`${name} purchased successfully!`);
-                saveGame();
-            } else {
-                alert("Not enough funds!");
-            }
-        }
-
-        function updateVehicleSelect() {
-            let select = document.getElementById("vehicleSelect");
-            select.innerHTML = '<option value="none">Select Vehicle</option>';
-            vehicles.forEach(vehicle => {
-                let option = document.createElement("option");
-                option.value = vehicle;
-                option.textContent = vehicle;
-                select.appendChild(option);
-            });
-        }
-
-        function dispatchVehicle() {
-            let selectedVehicle = document.getElementById("vehicleSelect").value;
-            if (selectedVehicle === "none") {
-                alert("Please select a vehicle to dispatch.");
-                return;
-            }
-            let mission = missions.find(m => !m.dispatched);
-            if (mission) {
-                mission.dispatched = true;
-                alert(`Dispatched ${selectedVehicle} to mission: ${mission.description}`);
-                saveGame();
-            } else {
-                alert("No available missions to dispatch to.");
-            }
-        }
-
-        function generateMission() {
-            const missionTypes = ["Fire", "Medical Emergency", "Crime"];
-            let lat = map.getCenter().lat + (Math.random() - 0.5) * 0.1;
-            let lng = map.getCenter().lng + (Math.random() - 0.5) * 0.1;
-            getAddress(lat, lng, function(address) {
-                let mission = {
-                    type: missionTypes[Math.floor(Math.random() * missionTypes.length)],
-                    lat: lat,
-                    lng: lng,
-                    description: `Emergency: ${missionTypes[Math.floor(Math.random() * missionTypes.length)]} at ${address}`,
-                    dispatched: false
-                };
-                missions.push(mission);
-                document.getElementById("missions").innerHTML += `<li>${mission.description}</li>`;
-                L.marker([lat, lng]).addTo(map).bindPopup(mission.description).openPopup();
-                sendToDiscord(`New mission: ${mission.description}`);
-                saveGame();
-            });
-        }
-
-        setInterval(generateMission, 60000);
-
-        function saveGame() {
-            localStorage.setItem("gameState", JSON.stringify({ playerFunds, buildings, missions, vehicles }));
-        }
-
-        function loadGame() {
-            updateFunds();
-            buildings.forEach(b => addMarker(b.lat, b.lng, b.name));
-            updateVehicleSelect();
-        }
-
-        window.onload = loadGame;
-        setInterval(saveGame, 60000);
+        // Placeholder for the game logic (app.js will contain the logic)
     </script>
 </body>
 </html>
