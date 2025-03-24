@@ -6,7 +6,6 @@
     <title>Emergency Worldwide</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        /* Add your styling here */
         body {
             font-family: Arial, sans-serif;
             background-color: #121212;
@@ -28,65 +27,93 @@
             border: none;
             cursor: pointer;
             margin: 5px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
         }
         .menu button:hover {
             background-color: #0056b3;
         }
-        /* Add more styles as needed */
+        .menu button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .page-title {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .instructions {
+            font-size: 1.2rem;
+            color: #ddd;
+            margin-bottom: 20px;
+        }
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .alert {
+            background-color: #f44336;
+            color: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-<div class="menu">
-    <button onclick="showMainPage()">🏠 Main Page</button>
-    <button onclick="showRefundPage()">💰 Refund System</button>
-    <button onclick="showViewDetailsPage()">🔍 View Details</button>
-</div>
+<div class="alert" id="alertBox">This location is already occupied by another building or vehicle.</div>
 
 <!-- Main Page -->
 <div id="main-page">
-    <h1>🚨 Emergency Worldwide</h1>
+    <h1 class="page-title">🚨 Emergency Worldwide</h1>
+    <div class="instructions">Click on the map to place your buildings and vehicles. Follow the instructions below:</div>
     <div id="map"></div>
-    <button onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
-    <button onclick="startPlacing('Fire Engine')">🚒 Place Fire Engine</button>
-    <button onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
+    <button class="menu" onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
+    <button class="menu" onclick="startPlacing('Fire Engine')">🚒 Place Fire Engine</button>
+    <button class="menu" onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
 </div>
 
 <!-- Refund Page -->
 <div id="refund-page" style="display: none;">
     <div>
-        <h2>💰 Refund System</h2>
+        <h2 class="page-title">💰 Refund System</h2>
         <h3>Buildings</h3>
-        <div id="refund-building-list">Loading buildings...</div>
+        <div id="refund-building-list" class="loading-spinner"></div>
         <h3>Vehicles</h3>
-        <div id="refund-vehicle-list">Loading vehicles...</div>
+        <div id="refund-vehicle-list" class="loading-spinner"></div>
     </div>
-    <button onclick="showMainPage()">Back to Main</button>
+    <button class="menu" onclick="showMainPage()">Back to Main</button>
 </div>
 
 <!-- View Details Page -->
 <div id="view-details-page" style="display: none;">
-    <h2>📟 View Details</h2>
-    <div id="building-list">Loading buildings...</div>
-    <div id="vehicle-list">Loading vehicles...</div>
-    <div id="mission-list">Loading missions...</div>
-    <button onclick="showMainPage()">Back to Main</button>
+    <h2 class="page-title">📟 View Details</h2>
+    <div id="building-list" class="loading-spinner"></div>
+    <div id="vehicle-list" class="loading-spinner"></div>
+    <div id="mission-list" class="loading-spinner"></div>
+    <button class="menu" onclick="showMainPage()">Back to Main</button>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-    // Initial data storage
     let balance = 1000000;
     let buildings = [];
     let vehicles = [];
     let markers = [];
     let placingType = null;
 
-    // Initialize the map
     let map = L.map('map').setView([-37.8136, 144.9631], 12);  
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Load progress from localStorage
     function loadProgress() {
         let savedData = JSON.parse(localStorage.getItem('gameData'));
         if (savedData) {
@@ -104,7 +131,6 @@
         }
     }
 
-    // Save progress to localStorage
     function updateLocalStorage() {
         let data = {
             buildings: buildings,
@@ -114,17 +140,21 @@
         localStorage.setItem('gameData', JSON.stringify(data));
     }
 
-    // Start placing a building or vehicle
     function startPlacing(type) {
         placingType = type;
         alert(`Click on the map to place a ${type}.`);
     }
 
-    // Handle map click to place markers
     map.on('click', function(event) {
         if (!placingType) return;
 
         let latlng = event.latlng;
+
+        if (isDuplicateLocation(latlng)) {
+            showAlert('This location is already occupied by another building or vehicle.');
+            return;
+        }
+
         let newMarker = L.marker(latlng).addTo(map)
             .bindPopup(`${placingType} - Click to view details`)
             .on('click', function() {
@@ -146,10 +176,19 @@
         }
 
         placingType = null;
-        updateLocalStorage(); // Save progress after placing
+        updateLocalStorage();
     });
 
-    // View details when clicking on a marker
+    function isDuplicateLocation(latlng) {
+        for (let markerData of markers) {
+            let markerLocation = markerData.data.location;
+            if (Math.abs(markerLocation.lat - latlng.lat) < 0.0001 && Math.abs(markerLocation.lng - latlng.lng) < 0.0001) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     function viewDetails(marker) {
         let markerData = markers.find(m => m.marker === marker);
         if (!markerData) return;
@@ -172,7 +211,6 @@
         document.getElementById('view-details-page').style.display = 'block';
     }
 
-    // Refund system: 20% refund when selling a building or vehicle
     function refundBuilding(buildingName) {
         let buildingIndex = buildings.findIndex(b => b.name === buildingName);
         let vehicleIndex = vehicles.findIndex(v => v.name === buildingName);
@@ -193,10 +231,8 @@
             balance += refundAmount;
         }
         updateLocalStorage();
-        updateRefundPage();
     }
 
-    // Remove marker from the map
     function removeMarker(name) {
         let markerToRemove = markers.find(m => m.data.name === name);
         if (markerToRemove) {
@@ -205,7 +241,6 @@
         }
     }
 
-    // Calculate 20% refund
     function calculateRefund(type) {
         let price = 0;
         if (type === 'Fire Engine') {
@@ -218,27 +253,27 @@
         return price * 0.20;
     }
 
-    // Update refund page with buildings and vehicles
-    function updateRefundPage() {
-        document.getElementById('refund-building-list').innerHTML = buildings.map(building => `<div>${building.name} - Refund: $${calculateRefund(building.type).toFixed(2)}</div>`).join('');
-        document.getElementById('refund-vehicle-list').innerHTML = vehicles.map(vehicle => `<div>${vehicle.name} - Refund: $${calculateRefund(vehicle.type).toFixed(2)}</div>`).join('');
+    function showAlert(message) {
+        let alertBox = document.getElementById('alertBox');
+        alertBox.textContent = message;
+        alertBox.style.display = 'block';
+        setTimeout(() => {
+            alertBox.style.display = 'none';
+        }, 3000);
     }
 
-    // Show the main page
     function showMainPage() {
         document.getElementById('view-details-page').style.display = 'none';
         document.getElementById('refund-page').style.display = 'none';
         document.getElementById('main-page').style.display = 'block';
     }
 
-    // Show the refund page
     function showRefundPage() {
         document.getElementById('main-page').style.display = 'none';
         document.getElementById('view-details-page').style.display = 'none';
         document.getElementById('refund-page').style.display = 'block';
     }
 
-    // Initial page load
     loadProgress();
 </script>
 
