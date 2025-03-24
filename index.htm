@@ -73,6 +73,18 @@
         .refund-btn:hover {
             background-color: #d32f2f;
         }
+        .restart-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .restart-btn:hover {
+            background-color: #c0392b;
+        }
     </style>
 </head>
 <body>
@@ -82,6 +94,7 @@
         <button onclick="showMainPage()">🏠 Main Page</button>
         <button onclick="showRefundPage()">💰 Refund System</button>
         <button onclick="showViewDetailsPage()">🔍 View Details</button>
+        <button class="restart-btn" onclick="restartGame()">🔄 Restart Game</button>
     </div>
 
     <!-- Main Page -->
@@ -233,6 +246,13 @@
         return price * 0.20;
     }
 
+    // Restart the game
+    function restartGame() {
+        localStorage.clear(); // Clear all saved data
+        alert('Game has been restarted!');
+        window.location.reload(); // Reload the page to reset the game
+    }
+
     // Show the main page
     function showMainPage() {
         document.getElementById("main-page").style.display = "block";
@@ -275,44 +295,42 @@
     // Save progress to localStorage
     function saveProgress() {
         localStorage.setItem('buildings', JSON.stringify(buildings));
-        localStorage.setItem('missions', JSON.stringify(missions));
         localStorage.setItem('vehicles', JSON.stringify(vehicles));
-        localStorage.setItem('markers', JSON.stringify(markers.map(m => ({
-            latlng: m.marker.getLatLng(),
-            data: m.data
-        }))));
         localStorage.setItem('balance', balance);
     }
 
-    // Load saved progress from localStorage
-    function loadProgress() {
-        let savedBuildings = JSON.parse(localStorage.getItem('buildings'));
-        let savedMissions = JSON.parse(localStorage.getItem('missions'));
-        let savedVehicles = JSON.parse(localStorage.getItem('vehicles'));
-        let savedMarkers = JSON.parse(localStorage.getItem('markers'));
-        let savedBalance = localStorage.getItem('balance');
+    // Load saved progress on page load
+    window.onload = function() {
+        const savedBuildings = localStorage.getItem('buildings');
+        const savedVehicles = localStorage.getItem('vehicles');
+        const savedBalance = localStorage.getItem('balance');
 
-        if (savedBuildings) buildings = savedBuildings;
-        if (savedMissions) missions = savedMissions;
-        if (savedVehicles) vehicles = savedVehicles;
-        if (savedMarkers) {
-            savedMarkers.forEach(markerData => {
-                let marker = L.marker(markerData.latlng).addTo(map)
-                    .bindPopup(markerData.data.name)
-                    .on('click', function() {
-                        viewBuildingDetails(this);
-                    });
-                markers.push({ marker, data: markerData.data });
-            });
-        }
+        if (savedBuildings) buildings = JSON.parse(savedBuildings);
+        if (savedVehicles) vehicles = JSON.parse(savedVehicles);
         if (savedBalance) balance = parseFloat(savedBalance);
+
+        updateDetailsPage();
+    };
+
+    // Update the details page with the latest buildings and vehicles
+    function updateDetailsPage() {
+        const buildingList = document.getElementById('building-list');
+        const vehicleList = document.getElementById('vehicle-list');
+        const missionList = document.getElementById('mission-list');
+
+        buildingList.innerHTML = buildings.length > 0 ? 
+            buildings.map(b => `<p>${b.name} - Location: ${b.location.lat.toFixed(3)}, ${b.location.lng.toFixed(3)}</p>`).join('') :
+            'No buildings placed';
+
+        vehicleList.innerHTML = vehicles.length > 0 ? 
+            vehicles.map(v => `<p>${v.name} - Location: ${v.location.lat.toFixed(3)}, ${v.location.lng.toFixed(3)}</p>`).join('') :
+            'No vehicles placed';
+
+        missionList.innerHTML = missions.length > 0 ? 
+            missions.map(m => `<p>Mission: ${m.name} - Location: ${m.location.lat.toFixed(3)}, ${m.location.lng.toFixed(3)}</p>`).join('') :
+            'No active missions';
     }
 
-    // Call loadProgress on page load
-    window.onload = function() {
-        loadProgress();
-    };
 </script>
-
 </body>
 </html>
