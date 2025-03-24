@@ -75,7 +75,7 @@
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-    // Set initial data
+    // Initial data storage
     let balance = 1000000;
     let buildings = [];
     let vehicles = [];
@@ -86,13 +86,14 @@
     let map = L.map('map').setView([-37.8136, 144.9631], 12);  
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Load saved progress from localStorage
+    // Load progress from localStorage
     function loadProgress() {
         let savedData = JSON.parse(localStorage.getItem('gameData'));
         if (savedData) {
             buildings = savedData.buildings || [];
             vehicles = savedData.vehicles || [];
             markers = savedData.markers || [];
+
             markers.forEach(markerData => {
                 let marker = L.marker(markerData.data.location).addTo(map)
                     .bindPopup(markerData.data.name)
