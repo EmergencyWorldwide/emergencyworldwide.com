@@ -196,18 +196,28 @@
             let building = buildings[buildingIndex];
             let refundAmount = calculateRefund(building.type);
             buildings.splice(buildingIndex, 1);
-            markers = markers.filter(m => m.data.name !== buildingName);
+            removeMarker(buildingName);  // Remove marker after refund
             alert(`You sold the ${building.name} for a refund of $${refundAmount.toFixed(2)}.`);
             balance += refundAmount;
         } else if (vehicleIndex !== -1) {
             let vehicle = vehicles[vehicleIndex];
             let refundAmount = calculateRefund(vehicle.type);
             vehicles.splice(vehicleIndex, 1);
+            removeMarker(vehicle.name);  // Remove marker after refund
             alert(`You sold the ${vehicle.name} for a refund of $${refundAmount.toFixed(2)}.`);
             balance += refundAmount;
         }
         saveProgress();
         updateRefundPage();
+    }
+
+    // Remove marker from the map
+    function removeMarker(name) {
+        let markerToRemove = markers.find(m => m.data.name === name);
+        if (markerToRemove) {
+            map.removeLayer(markerToRemove.marker); // Remove marker from map
+            markers = markers.filter(m => m !== markerToRemove); // Remove marker from markers array
+        }
     }
 
     // Calculate 20% refund
@@ -292,15 +302,13 @@
                     .on('click', function() {
                         viewBuildingDetails(this);
                     });
-                markers.push({ marker: marker, data: markerData.data });
+                markers.push({ marker, data: markerData.data });
             });
         }
-        if (savedBalance) balance = parseInt(savedBalance);
-
-        updateRefundPage();
+        if (savedBalance) balance = parseFloat(savedBalance);
     }
 
-    // Initialize on page load
+    // Call loadProgress on page load
     window.onload = function() {
         loadProgress();
     };
