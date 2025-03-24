@@ -10,64 +10,70 @@
             font-family: Arial, sans-serif;
             background-color: #121212;
             color: #fff;
+            padding: 20px;
             display: flex;
             flex-direction: column;
         }
         .container {
             display: flex;
-            width: 100%;
+            flex-direction: column;
         }
-        .left-section {
-            width: 75%;
-            padding: 20px;
+        .menu {
+            margin-bottom: 20px;
         }
-        .right-section {
-            width: 25%;
-            background: #1e1e1e;
-            padding: 15px;
-            height: 100vh;
-            overflow-y: auto;
-            border-left: 2px solid #333;
+        .menu button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .menu button:hover {
+            background-color: #0056b3;
         }
         #map {
-            height: 500px;
+            height: 400px;
             width: 100%;
             border-radius: 10px;
+            margin-bottom: 15px;
         }
-        .details-menu {
-            display: none;
-            position: fixed;
-            right: 0;
-            top: 0;
-            width: 300px;
-            height: 100%;
-            background: #222;
-            color: white;
+        .details-container {
             padding: 20px;
-            box-shadow: -5px 0 10px rgba(0, 0, 0, 0.2);
         }
-        .close-btn {
-            background-color: red;
-            color: white;
-            border: none;
-            padding: 8px;
-            cursor: pointer;
+        .details-container h2 {
+            margin-bottom: 20px;
+        }
+        .details-container p {
             margin-bottom: 10px;
         }
-        button {
+        .back-btn {
             background-color: #28a745;
             color: white;
             border: none;
-            padding: 10px;
+            padding: 10px 15px;
+            border-radius: 5px;
             cursor: pointer;
-            margin: 5px;
+        }
+        .back-btn:hover {
+            background-color: #218838;
+        }
+        .loading {
+            font-size: 18px;
+            color: #ff9800;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="left-section">
+    <div class="menu">
+        <button onclick="showMainPage()">🏠 Main Page</button>
+        <button onclick="showViewDetailsPage()">🔍 View Details</button>
+    </div>
+
+    <!-- Main Page -->
+    <div id="main-page">
         <h1>🚨 Emergency Worldwide</h1>
         <div id="map"></div>
         <button onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
@@ -75,20 +81,19 @@
         <button onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
     </div>
 
-    <div class="right-section">
-        <h2>📟 MDT - Mission List</h2>
-        <div id="missions-list">No Active Missions</div>
-        <h2>💰 Balance: $<span id="balance">1000000</span></h2>
+    <!-- View Details Page -->
+    <div id="view-details-page" style="display: none;">
+        <div class="details-container">
+            <h2>📟 View Details</h2>
+            <h3>Buildings</h3>
+            <div id="building-list" class="loading">Loading buildings...</div>
+            <h3>Vehicles</h3>
+            <div id="vehicle-list" class="loading">Loading vehicles...</div>
+            <h3>Missions</h3>
+            <div id="mission-list" class="loading">Loading missions...</div>
+            <button class="back-btn" onclick="showMainPage()">Back to Main</button>
+        </div>
     </div>
-</div>
-
-<!-- Details Menu -->
-<div id="details-menu" class="details-menu">
-    <button class="close-btn" onclick="closeDetailsMenu()">❌ Close</button>
-    <h2 id="details-title"></h2>
-    <p id="details-info"></p>
-    <button onclick="renameBuilding()">✏ Rename</button>
-    <button onclick="viewFullDetails()">📄 View Full Details</button>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -99,15 +104,17 @@
     let balance = 1000000;
     let buildings = [];
     let vehicles = [];
+    let missions = [];
     let markers = [];
     let placingType = null;
-    let selectedBuilding = null;
 
+    // Start placing a building or vehicle
     function startPlacing(type) {
         placingType = type;
         alert(`Click on the map to place a ${type}.`);
     }
 
+    // Handle map click to place markers
     map.on('click', function(event) {
         if (!placingType) return;
 
@@ -115,7 +122,7 @@
         let newMarker = L.marker(latlng).addTo(map)
             .bindPopup(`${placingType} - Click to view details`)
             .on('click', function() {
-                openDetailsMenu(this);
+                viewBuildingDetails(this);
             });
 
         let markerData = {
@@ -125,53 +132,145 @@
         };
 
         markers.push({ marker: newMarker, data: markerData });
-        buildings.push(markerData);
+
+        if (placingType === "Fire Engine") {
+            vehicles.push(markerData);
+        } else {
+            buildings.push(markerData);
+        }
 
         placingType = null;
         saveProgress();
     });
 
-    function openDetailsMenu(marker) {
+    // View building details on click
+    function viewBuildingDetails(marker) {
         let markerData = markers.find(m => m.marker === marker);
         if (!markerData) return;
 
-        selectedBuilding = markerData.data;
-        document.getElementById('details-title').innerText = selectedBuilding.name;
-        document.getElementById('details-info').innerHTML = `
-            📍 Location: ${selectedBuilding.location.lat.toFixed(3)}, ${selectedBuilding.location.lng.toFixed(3)}
+        let building = markerData.data;
+        let vehicleList = vehicles.filter(v => v.location.lat === building.location.lat && v.location.lng === building.location.lng);
+
+        let details = `
+            <h3>${building.name} - Details</h3>
+            <p>📍 Location: ${building.location.lat.toFixed(3)}, ${building.location.lng.toFixed(3)}</p>
+            <h4>Assigned Vehicles:</h4>
+            <ul>
+                ${vehicleList.map(vehicle => `<li>${vehicle.name}</li>`).join('')}
+            </ul>
+            <button onclick="refundBuilding('${building.name}')">Sell for 20% Refund</button>
         `;
-        document.getElementById('details-menu').style.display = 'block';
+        alert(details);
     }
 
-    function closeDetailsMenu() {
-        document.getElementById('details-menu').style.display = 'none';
-    }
+    // Refund system: 20% refund when selling a building or vehicle
+    function refundBuilding(buildingName) {
+        let buildingIndex = buildings.findIndex(b => b.name === buildingName);
+        let vehicleIndex = vehicles.findIndex(v => v.name === buildingName);
 
-    function renameBuilding() {
-        if (!selectedBuilding) return;
-        let newName = prompt("Enter new name:");
-        if (newName) {
-            selectedBuilding.name = newName;
-            document.getElementById('details-title').innerText = newName;
-            saveProgress();
+        if (buildingIndex !== -1) {
+            let building = buildings[buildingIndex];
+            let refundAmount = calculateRefund(building.type);
+            buildings.splice(buildingIndex, 1);
+            markers = markers.filter(m => m.data.name !== buildingName);
+            alert(`You sold the ${building.name} for a refund of $${refundAmount.toFixed(2)}.`);
+            balance += refundAmount;
+        } else if (vehicleIndex !== -1) {
+            let vehicle = vehicles[vehicleIndex];
+            let refundAmount = calculateRefund(vehicle.type);
+            vehicles.splice(vehicleIndex, 1);
+            alert(`You sold the ${vehicle.name} for a refund of $${refundAmount.toFixed(2)}.`);
+            balance += refundAmount;
         }
+        saveProgress();
+        updateDetailsPage();
     }
 
-    function viewFullDetails() {
-        if (!selectedBuilding) return;
-        localStorage.setItem("selectedBuilding", JSON.stringify(selectedBuilding));
-        window.location.href = "details.html";
+    // Calculate 20% refund
+    function calculateRefund(type) {
+        let price = 0;
+        if (type === 'Fire Engine') {
+            price = 300000;
+        } else if (type === 'Fire Station') {
+            price = 500000;
+        } else if (type === 'DMO Shed') {
+            price = 100000;
+        }
+        return price * 0.20;
     }
 
+    // Show the main page
+    function showMainPage() {
+        document.getElementById("main-page").style.display = "block";
+        document.getElementById("view-details-page").style.display = "none";
+    }
+
+    // Show the view details page
+    function showViewDetailsPage() {
+        document.getElementById("main-page").style.display = "none";
+        document.getElementById("view-details-page").style.display = "block";
+        updateDetailsPage();
+    }
+
+    // Update the details page with information about buildings, vehicles, and missions
+    function updateDetailsPage() {
+        const buildingListContainer = document.getElementById('building-list');
+        const vehicleListContainer = document.getElementById('vehicle-list');
+        const missionListContainer = document.getElementById('mission-list');
+
+        // Check if the data is loaded and update the page accordingly
+        buildingListContainer.innerHTML = buildings.length > 0 ? 
+            buildings.map(b => `<p>${b.name} - Location: ${b.location.lat.toFixed(3)}, ${b.location.lng.toFixed(3)}</p>`).join('') :
+            'No buildings placed';
+
+        vehicleListContainer.innerHTML = vehicles.length > 0 ? 
+            vehicles.map(v => `<p>${v.name} - Location: ${v.location.lat.toFixed(3)}, ${v.location.lng.toFixed(3)}</p>`).join('') :
+            'No vehicles placed';
+
+        missionListContainer.innerHTML = missions.length > 0 ? 
+            missions.map(m => `<p>Mission: ${m.type} - Location: ${m.location.lat.toFixed(3)}, ${m.location.lng.toFixed(3)}</p>`).join('') :
+            'No missions active';
+    }
+
+    // Save progress to localStorage
     function saveProgress() {
         localStorage.setItem('buildings', JSON.stringify(buildings));
+        localStorage.setItem('missions', JSON.stringify(missions));
+        localStorage.setItem('vehicles', JSON.stringify(vehicles));
+        localStorage.setItem('markers', JSON.stringify(markers.map(m => ({
+            latlng: m.marker.getLatLng(),
+            data: m.data
+        }))));
+        localStorage.setItem('balance', balance);
     }
 
+    // Load saved progress from localStorage
     function loadProgress() {
         let savedBuildings = JSON.parse(localStorage.getItem('buildings'));
+        let savedMissions = JSON.parse(localStorage.getItem('missions'));
+        let savedVehicles = JSON.parse(localStorage.getItem('vehicles'));
+        let savedMarkers = JSON.parse(localStorage.getItem('markers'));
+        let savedBalance = localStorage.getItem('balance');
+
         if (savedBuildings) buildings = savedBuildings;
+        if (savedMissions) missions = savedMissions;
+        if (savedVehicles) vehicles = savedVehicles;
+        if (savedMarkers) {
+            savedMarkers.forEach(markerData => {
+                let marker = L.marker(markerData.latlng).addTo(map)
+                    .bindPopup(markerData.data.name)
+                    .on('click', function() {
+                        viewBuildingDetails(this);
+                    });
+                markers.push({ marker: marker, data: markerData.data });
+            });
+        }
+        if (savedBalance) balance = parseInt(savedBalance);
+
+        updateDetailsPage();
     }
 
+    // Initialize on page load
     window.onload = function() {
         loadProgress();
     };
@@ -179,3 +278,4 @@
 
 </body>
 </html>
+
