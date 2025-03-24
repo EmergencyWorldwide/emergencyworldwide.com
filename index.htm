@@ -10,70 +10,86 @@
             font-family: Arial, sans-serif;
             background-color: #121212;
             color: #fff;
-            padding: 20px;
             display: flex;
+            flex-direction: column;
+        }
+        .container {
+            display: flex;
+            width: 100%;
         }
         .left-section {
-            width: 70%;
-            margin-right: 20px;
+            width: 75%;
+            padding: 20px;
         }
         .right-section {
-            width: 30%;
+            width: 25%;
             background: #1e1e1e;
             padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.1);
+            height: 100vh;
+            overflow-y: auto;
+            border-left: 2px solid #333;
         }
         #map {
             height: 500px;
             width: 100%;
             border-radius: 10px;
-            margin-bottom: 15px;
+        }
+        .details-menu {
+            display: none;
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 300px;
+            height: 100%;
+            background: #222;
+            color: white;
+            padding: 20px;
+            box-shadow: -5px 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .close-btn {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            margin-bottom: 10px;
         }
         button {
             background-color: #28a745;
             color: white;
             border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
+            padding: 10px;
             cursor: pointer;
             margin: 5px;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #218838;
-        }
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #ff9800;
-            padding: 10px;
-            border-radius: 5px;
-            display: none;
-            box-shadow: 0px 0px 10px rgba(255, 152, 0, 0.8);
         }
     </style>
 </head>
 <body>
 
-<div class="left-section">
-    <h1>🚨 Emergency Worldwide</h1>
-    <div id="map"></div>
-    <button onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
-    <button onclick="startPlacing('Fire Engine')">🚒 Place Fire Engine</button>
-    <button onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
+<div class="container">
+    <div class="left-section">
+        <h1>🚨 Emergency Worldwide</h1>
+        <div id="map"></div>
+        <button onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
+        <button onclick="startPlacing('Fire Engine')">🚒 Place Fire Engine</button>
+        <button onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
+    </div>
+
+    <div class="right-section">
+        <h2>📟 MDT - Mission List</h2>
+        <div id="missions-list">No Active Missions</div>
+        <h2>💰 Balance: $<span id="balance">1000000</span></h2>
+    </div>
 </div>
 
-<div class="right-section">
-    <h2>📟 MDT - Mission List</h2>
-    <div id="missions-list">No Active Missions</div>
-    <h2>💰 Your Balance: $<span id="balance">1000000</span></h2>
-    <h3>🔔 Active Events</h3>
-    <div id="active-events">No Active Events</div>
+<!-- Details Menu -->
+<div id="details-menu" class="details-menu">
+    <button class="close-btn" onclick="closeDetailsMenu()">❌ Close</button>
+    <h2 id="details-title"></h2>
+    <p id="details-info"></p>
+    <button onclick="renameBuilding()">✏ Rename</button>
+    <button onclick="viewFullDetails()">📄 View Full Details</button>
 </div>
-
-<div id="notification" class="notification"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
@@ -83,11 +99,9 @@
     let balance = 1000000;
     let buildings = [];
     let vehicles = [];
-    let missions = [];
-    let markers = []; // Store markers in an array
+    let markers = [];
     let placingType = null;
-    let doubleMoneyActive = false;
-    let eventStartTime = null;
+    let selectedBuilding = null;
 
     function startPlacing(type) {
         placingType = type;
@@ -101,194 +115,65 @@
         let newMarker = L.marker(latlng).addTo(map)
             .bindPopup(`${placingType} - Click to view details`)
             .on('click', function() {
-                viewBuildingDetails(this);
+                openDetailsMenu(this);
             });
 
-        // Store the marker with its associated data
         let markerData = {
             type: placingType,
-            location: latlng
+            location: latlng,
+            name: `${placingType} at ${latlng.lat.toFixed(3)}, ${latlng.lng.toFixed(3)}`
         };
 
         markers.push({ marker: newMarker, data: markerData });
-
-        if (placingType === "Fire Engine") {
-            vehicles.push(markerData);
-        } else {
-            buildings.push(markerData);
-        }
+        buildings.push(markerData);
 
         placingType = null;
         saveProgress();
     });
 
-    function viewBuildingDetails(marker) {
+    function openDetailsMenu(marker) {
         let markerData = markers.find(m => m.marker === marker);
         if (!markerData) return;
 
-        let building = markerData.data;
-        let vehicleList = vehicles.filter(v => v.location.lat === building.location.lat && v.location.lng === building.location.lng);
-
-        let details = `
-            <h3>${building.type} Details</h3>
-            <p>📍 Location: ${building.location.lat.toFixed(3)}, ${building.location.lng.toFixed(3)}</p>
-            <h4>Assigned Vehicles:</h4>
-            <ul>
-                ${vehicleList.map(vehicle => `<li>${vehicle.type}</li>`).join('')}
-            </ul>
+        selectedBuilding = markerData.data;
+        document.getElementById('details-title').innerText = selectedBuilding.name;
+        document.getElementById('details-info').innerHTML = `
+            📍 Location: ${selectedBuilding.location.lat.toFixed(3)}, ${selectedBuilding.location.lng.toFixed(3)}
         `;
-        alert(details);
+        document.getElementById('details-menu').style.display = 'block';
     }
 
-    function refundBuilding(type, marker) {
-        let refundAmount = getBuildingPrice(type) * 0.2;
-        balance += refundAmount;
-        document.getElementById('balance').innerText = balance;
-        map.removeLayer(marker);
-        showNotification(`💸 Refunded ${type} for $${refundAmount}`);
-        saveProgress();
+    function closeDetailsMenu() {
+        document.getElementById('details-menu').style.display = 'none';
     }
 
-    function getBuildingPrice(type) {
-        switch (type) {
-            case 'Fire Station': return 50000;
-            case 'Fire Engine': return 25000;
-            case 'DMO Shed': return 10000;
-            default: return 0;
+    function renameBuilding() {
+        if (!selectedBuilding) return;
+        let newName = prompt("Enter new name:");
+        if (newName) {
+            selectedBuilding.name = newName;
+            document.getElementById('details-title').innerText = newName;
+            saveProgress();
         }
     }
 
-    function generateMission() {
-        if (buildings.length === 0) return;
-
-        let building = buildings[Math.floor(Math.random() * buildings.length)];
-        let mission = {
-            id: missions.length + 1,
-            type: '🔥 Fire Emergency',
-            location: building.location,
-            status: 'Pending',
-            requiredUnits: 1,
-            assignedUnits: []
-        };
-
-        missions.push(mission);
-        updateMDT();
-        showNotification('🔥 New Mission Generated!');
-        saveProgress();
-    }
-
-    function updateMDT() {
-        let missionContainer = document.getElementById('missions-list');
-        missionContainer.innerHTML = '';
-
-        if (missions.length === 0) {
-            missionContainer.innerHTML = 'No Active Missions';
-            return;
-        }
-
-        missions.forEach(mission => {
-            let missionElement = document.createElement('div');
-            missionElement.innerHTML = `
-                <p><strong>${mission.type}</strong></p>
-                <p>📍 ${mission.location.lat.toFixed(3)}, ${mission.location.lng.toFixed(3)}</p>
-                <button onclick="dispatchVehicle(${mission.id})">🚒 Dispatch Fire Engine</button>
-            `;
-            missionContainer.appendChild(missionElement);
-        });
-    }
-
-    function dispatchVehicle(missionId) {
-        let mission = missions.find(m => m.id === missionId);
-        if (!mission) return;
-
-        if (vehicles.length > 0) {
-            mission.assignedUnits.push(vehicles[0]); 
-            showNotification('🚒 Fire Engine Dispatched!');
-            checkMissionCompletion(missionId);
-        } else {
-            showNotification('❌ No available Fire Engines!');
-        }
-    }
-
-    function checkMissionCompletion(missionId) {
-        let mission = missions.find(m => m.id === missionId);
-        if (mission.assignedUnits.length >= mission.requiredUnits) {
-            setTimeout(() => {
-                missions = missions.filter(m => m.id !== missionId);
-                let reward = doubleMoneyActive ? 10000 : 5000;
-                balance += reward;
-                document.getElementById('balance').innerText = balance;
-                showNotification(`✅ Mission Completed! Earned $${reward}`);
-                updateMDT();
-                saveProgress();
-            }, 5000);
-        }
-    }
-
-    function showNotification(message) {
-        const notification = document.getElementById('notification');
-        notification.innerHTML = message;
-        notification.style.display = 'block';
-
-        setTimeout(() => {
-            notification.style.display = 'none';
-        }, 3000);
-    }
-
-    function activateDoubleMoneyEvent() {
-        doubleMoneyActive = true;
-        eventStartTime = new Date().getTime();
-        document.getElementById('active-events').innerText = 'Double Money Event Active (24 Hours)';
-
-        setTimeout(() => {
-            doubleMoneyActive = false;
-            document.getElementById('active-events').innerText = 'No Active Events';
-        }, 86400000); // 24 hours
+    function viewFullDetails() {
+        if (!selectedBuilding) return;
+        localStorage.setItem("selectedBuilding", JSON.stringify(selectedBuilding));
+        window.location.href = "details.html";
     }
 
     function saveProgress() {
         localStorage.setItem('buildings', JSON.stringify(buildings));
-        localStorage.setItem('missions', JSON.stringify(missions));
-        localStorage.setItem('vehicles', JSON.stringify(vehicles));
-        localStorage.setItem('markers', JSON.stringify(markers.map(m => ({
-            latlng: m.marker.getLatLng(),
-            data: m.data
-        }))));
-        localStorage.setItem('balance', balance);
     }
 
     function loadProgress() {
         let savedBuildings = JSON.parse(localStorage.getItem('buildings'));
-        let savedMissions = JSON.parse(localStorage.getItem('missions'));
-        let savedVehicles = JSON.parse(localStorage.getItem('vehicles'));
-        let savedMarkers = JSON.parse(localStorage.getItem('markers'));
-        let savedBalance = localStorage.getItem('balance');
-
         if (savedBuildings) buildings = savedBuildings;
-        if (savedMissions) missions = savedMissions;
-        if (savedVehicles) vehicles = savedVehicles;
-        if (savedMarkers) {
-            savedMarkers.forEach(markerData => {
-                let marker = L.marker(markerData.latlng).addTo(map)
-                    .bindPopup(`${markerData.data.type} - Click to view details`)
-                    .on('click', function() {
-                        viewBuildingDetails(this);
-                    });
-                markers.push({ marker: marker, data: markerData.data });
-            });
-        }
-        if (savedBalance) balance = parseInt(savedBalance);
-
-        document.getElementById('balance').innerText = balance;
-        updateMDT();
     }
 
     window.onload = function() {
         loadProgress();
-        setInterval(generateMission, 60000);
-        if (!eventStartTime || new Date().getTime() - eventStartTime > 86400000) {
-            activateDoubleMoneyEvent();
-        }
     };
 </script>
 
