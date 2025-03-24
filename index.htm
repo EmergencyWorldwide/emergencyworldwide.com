@@ -107,6 +107,7 @@
     let missions = [];
     let markers = [];
     let placingType = null;
+    let selectedBuilding = null; // Track the selected building for refund
 
     // Start placing a building or vehicle
     function startPlacing(type) {
@@ -148,6 +149,8 @@
         let markerData = markers.find(m => m.marker === marker);
         if (!markerData) return;
 
+        selectedBuilding = markerData.data; // Set the selected building for refund
+
         let building = markerData.data;
         let vehicleList = vehicles.filter(v => v.location.lat === building.location.lat && v.location.lng === building.location.lng);
 
@@ -160,7 +163,7 @@
             </ul>
             <button onclick="refundBuilding('${building.name}')">Sell for 20% Refund</button>
         `;
-        alert(details);
+        document.getElementById('building-list').innerHTML = details; // Display details in the view
     }
 
     // Refund system: 20% refund when selling a building or vehicle
@@ -278,4 +281,3 @@
 
 </body>
 </html>
-
