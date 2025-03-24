@@ -3,32 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emergency Services Simulator</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://unpkg.com/leaflet"></script>
-    <script src="app.js" defer></script>
+    <title>Emergency Worldwide</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        /* General Styling */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            background-color: #121212;
+            color: #fff;
+            padding: 20px;
+        }
+
+        /* Layout */
+        .left-section {
+            width: 70%;
+            margin-right: 20px;
+        }
+
+        .right-section {
+            width: 30%;
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Map */
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* Buttons */
+        .controls {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        /* MDT */
+        #mdt h2 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .mission-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .mission {
+            background: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .mission p {
+            margin: 5px 0;
+        }
+
+        .dispatch-btn {
+            background: #dc3545;
+            border: none;
+            padding: 8px;
+            color: white;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: 0.3s;
+        }
+
+        .dispatch-btn:hover {
+            background: #c82333;
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff9800;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            box-shadow: 0px 0px 10px rgba(255, 152, 0, 0.8);
+        }
+    </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Emergency Services Simulator</h1>
-        <p>Funds: $<span id="funds">1000000</span></p>
-    </div>
 
+<!-- Left: Map Section -->
+<div class="left-section">
+    <h1>🚨 Emergency Worldwide</h1>
+    <div id="map"></div>
     <div class="controls">
-        <h2>Purchase Items</h2>
-        <button id="buyFireStation">Buy Fire Station ($500,000)</button>
-        <button id="buyAmbulance">Buy Ambulance ($200,000)</button>
+        <button onclick="buyFireStation()">🔥 Buy Fire Station</button>
+        <button onclick="buyFireEngine()">🚒 Buy Fire Engine</button>
     </div>
+</div>
 
-    <div id="map"></div> <!-- The map container -->
+<!-- Right: MDT -->
+<div class="right-section">
+    <h2>📟 MDT - Mobile Data Terminal</h2>
+    <div id="missions-list" class="mission-list">No Active Missions</div>
+</div>
 
-    <div class="notifications">
-        <h3>Notifications</h3>
-        <ul id="notificationList"></ul>
-    </div>
+<!-- Notification -->
+<div id="notification" class="notification"></div>
 
-    <script>
-        // Placeholder for the game logic (app.js will contain the logic)
-    </script>
+<!-- Map Script -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    // Set default location to Melbourne, Australia
+    let map = L.map('map').setView([-37.8136, 144.9631], 12);  
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    let buildings = [];
+    let missions = [];
+    let vehicles = [];
+
+    function buyFireStation() {
+        let latlng = map.getCenter();
+        let fireStation = L.marker(latlng).addTo(map)
+            .bindPopup('🚒 Fire Station')
+            .on('click', function() {
+                alert('Fire Station placed!');
+            });
+
+        buildings.push({ type: 'Fire Station', location: latlng });
+        showNotification('🔥 Fire Station Purchased!');
+        saveProgress();
+    }
+
+    function buyFireEngine() {
+        let fireEngine = {
+            id: vehicles.length + 1,
+            type: 'Fire Engine',
+            status: 'Available'
+        };
+        vehicles.push(fireEngine);
+        showNotification('🚒 Fire Engine Purchased!');
+        saveProgress();
+    }
+
+    function generateMission() {
+        if (buildings.length === 0) {
+            console.log("No fire stations to generate missions.");
+            return;
+        }
+
+        let building = buildings[Math.floor(Math.random() * buildings.length)];
+        let mission = {
+            id: missions.length + 1,
+            type: '🔥 Fire Emergency',
+            location: building.location,
+            status: 'Pending',
+            requiredUnits: 1,
+            assignedUnits: []
+        };
+
+        missions.push(mission);
+        updateMDT();
+        showNotification('🔥 New Mission Generated!');
+        saveProgress();
+    }
+
+    function updateMDT() {
+        let missionContainer = document.getElementById('missions-list');
+        missionContainer.innerHTML = '';
+
+        if (missions.length === 0) {
+            missionContainer.innerHTML = 'No Active Missions';
+            return;
+        }
+
+        missions.forEach(mission => {
+            let missionElement = document.createElement('div');
+            missionElement.className = 'mission';
+            missionElement.innerHTML = `
+                <p><strong>${mission.type}</strong></p>
+                <p>📍 Location: ${mission.location.lat.toFixed(3)}, ${mission.location.lng.toFixed(3)}</p>
+                <p>Status: ${mission.status}</p>
+                <p>Required Units: ${mission.requiredUnits}</p>
+                <p>Assigned: ${mission.assignedUnits.length}/${mission.requiredUnits}</p>
+                <button class="dispatch-btn" onclick="dispatchVehicle(${mission.id})">🚨 Dispatch</button>
+            `;
+            missionContainer.appendChild(missionElement);
+        });
+    }
+
+    function dispatchVehicle(missionId) {
+        let mission = missions.find(m => m.id === missionId);
+        let availableVehicle = vehicles.find(v => v.status === 'Available');
+
+        if (!availableVehicle) {
+            showNotification('❌ No Available Vehicles!');
+            return;
+        }
+
+        availableVehicle.status = 'Dispatched';
+        mission.assignedUnits.push(availableVehicle.id);
+
+        if (mission.assignedUnits.length >= mission.requiredUnits) {
+            mission.status = 'In Progress';
+        }
+
+        updateMDT();
+        showNotification('🚒 Fire Engine Dispatched!');
+        saveProgress();
+    }
+
+    function showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.innerHTML = message;
+        notification.style.display = 'block';
+
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 5000);
+    }
+
+    function saveProgress() {
+        localStorage.setItem('buildings', JSON.stringify(buildings));
+        localStorage.setItem('missions', JSON.stringify(missions));
+        localStorage.setItem('vehicles', JSON.stringify(vehicles));
+    }
+
+    function loadProgress() {
+        let savedBuildings = JSON.parse(localStorage.getItem('buildings'));
+        let savedMissions = JSON.parse(localStorage.getItem('missions'));
+        let savedVehicles = JSON.parse(localStorage.getItem('vehicles'));
+
+        if (savedBuildings) buildings = savedBuildings;
+        if (savedMissions) missions = savedMissions;
+        if (savedVehicles) vehicles = savedVehicles;
+
+        updateMDT();
+    }
+
+    window.onload = function() {
+        loadProgress();
+        setInterval(generateMission, 60000);
+    };
+</script>
+
 </body>
 </html>
