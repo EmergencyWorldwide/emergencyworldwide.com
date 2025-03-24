@@ -62,6 +62,17 @@
             font-size: 18px;
             color: #ff9800;
         }
+        .refund-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .refund-btn:hover {
+            background-color: #d32f2f;
+        }
     </style>
 </head>
 <body>
@@ -69,6 +80,7 @@
 <div class="container">
     <div class="menu">
         <button onclick="showMainPage()">🏠 Main Page</button>
+        <button onclick="showRefundPage()">💰 Refund System</button>
         <button onclick="showViewDetailsPage()">🔍 View Details</button>
     </div>
 
@@ -79,6 +91,18 @@
         <button onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
         <button onclick="startPlacing('Fire Engine')">🚒 Place Fire Engine</button>
         <button onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
+    </div>
+
+    <!-- Refund Page -->
+    <div id="refund-page" style="display: none;">
+        <div class="details-container">
+            <h2>💰 Refund System</h2>
+            <h3>Buildings</h3>
+            <div id="refund-building-list" class="loading">Loading buildings...</div>
+            <h3>Vehicles</h3>
+            <div id="refund-vehicle-list" class="loading">Loading vehicles...</div>
+            <button class="back-btn" onclick="showMainPage()">Back to Main</button>
+        </div>
     </div>
 
     <!-- View Details Page -->
@@ -107,7 +131,6 @@
     let missions = [];
     let markers = [];
     let placingType = null;
-    let selectedBuilding = null; // Track the selected building for refund
 
     // Start placing a building or vehicle
     function startPlacing(type) {
@@ -149,8 +172,6 @@
         let markerData = markers.find(m => m.marker === marker);
         if (!markerData) return;
 
-        selectedBuilding = markerData.data; // Set the selected building for refund
-
         let building = markerData.data;
         let vehicleList = vehicles.filter(v => v.location.lat === building.location.lat && v.location.lng === building.location.lng);
 
@@ -186,7 +207,7 @@
             balance += refundAmount;
         }
         saveProgress();
-        updateDetailsPage();
+        updateRefundPage();
     }
 
     // Calculate 20% refund
@@ -206,33 +227,39 @@
     function showMainPage() {
         document.getElementById("main-page").style.display = "block";
         document.getElementById("view-details-page").style.display = "none";
+        document.getElementById("refund-page").style.display = "none";
     }
 
     // Show the view details page
     function showViewDetailsPage() {
         document.getElementById("main-page").style.display = "none";
         document.getElementById("view-details-page").style.display = "block";
+        document.getElementById("refund-page").style.display = "none";
         updateDetailsPage();
     }
 
-    // Update the details page with information about buildings, vehicles, and missions
-    function updateDetailsPage() {
-        const buildingListContainer = document.getElementById('building-list');
-        const vehicleListContainer = document.getElementById('vehicle-list');
-        const missionListContainer = document.getElementById('mission-list');
+    // Show the refund system page
+    function showRefundPage() {
+        document.getElementById("main-page").style.display = "none";
+        document.getElementById("view-details-page").style.display = "none";
+        document.getElementById("refund-page").style.display = "block";
+        updateRefundPage();
+    }
 
-        // Check if the data is loaded and update the page accordingly
+    // Update the refund page with buildings and vehicles
+    function updateRefundPage() {
+        const buildingListContainer = document.getElementById('refund-building-list');
+        const vehicleListContainer = document.getElementById('refund-vehicle-list');
+
         buildingListContainer.innerHTML = buildings.length > 0 ? 
-            buildings.map(b => `<p>${b.name} - Location: ${b.location.lat.toFixed(3)}, ${b.location.lng.toFixed(3)}</p>`).join('') :
-            'No buildings placed';
+            buildings.map(b => `<p>${b.name} - Location: ${b.location.lat.toFixed(3)}, ${b.location.lng.toFixed(3)} 
+                <button class="refund-btn" onclick="refundBuilding('${b.name}')">Refund</button></p>`).join('') :
+            'No buildings placed for refund';
 
         vehicleListContainer.innerHTML = vehicles.length > 0 ? 
-            vehicles.map(v => `<p>${v.name} - Location: ${v.location.lat.toFixed(3)}, ${v.location.lng.toFixed(3)}</p>`).join('') :
-            'No vehicles placed';
-
-        missionListContainer.innerHTML = missions.length > 0 ? 
-            missions.map(m => `<p>Mission: ${m.type} - Location: ${m.location.lat.toFixed(3)}, ${m.location.lng.toFixed(3)}</p>`).join('') :
-            'No missions active';
+            vehicles.map(v => `<p>${v.name} - Location: ${v.location.lat.toFixed(3)}, ${v.location.lng.toFixed(3)} 
+                <button class="refund-btn" onclick="refundBuilding('${v.name}')">Refund</button></p>`).join('') :
+            'No vehicles placed for refund';
     }
 
     // Save progress to localStorage
@@ -270,7 +297,7 @@
         }
         if (savedBalance) balance = parseInt(savedBalance);
 
-        updateDetailsPage();
+        updateRefundPage();
     }
 
     // Initialize on page load
