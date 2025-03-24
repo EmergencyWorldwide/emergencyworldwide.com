@@ -6,6 +6,7 @@
     <title>Emergency Worldwide</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
+        /* Add your styling here */
         body {
             font-family: Arial, sans-serif;
             background-color: #121212;
@@ -14,12 +15,11 @@
             display: flex;
             flex-direction: column;
         }
-        .container {
-            display: flex;
-            flex-direction: column;
-        }
-        .menu {
-            margin-bottom: 20px;
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
         }
         .menu button {
             background-color: #007bff;
@@ -32,118 +32,86 @@
         .menu button:hover {
             background-color: #0056b3;
         }
-        #map {
-            height: 400px;
-            width: 100%;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-        .details-container {
-            padding: 20px;
-        }
-        .details-container h2 {
-            margin-bottom: 20px;
-        }
-        .details-container p {
-            margin-bottom: 10px;
-        }
-        .back-btn {
-            background-color: #28a745;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .back-btn:hover {
-            background-color: #218838;
-        }
-        .loading {
-            font-size: 18px;
-            color: #ff9800;
-        }
-        .refund-btn {
-            background-color: #f44336;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .refund-btn:hover {
-            background-color: #d32f2f;
-        }
-        .restart-btn {
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-        .restart-btn:hover {
-            background-color: #c0392b;
-        }
+        /* Add more styles as needed */
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="menu">
-        <button onclick="showMainPage()">🏠 Main Page</button>
-        <button onclick="showRefundPage()">💰 Refund System</button>
-        <button onclick="showViewDetailsPage()">🔍 View Details</button>
-        <button class="restart-btn" onclick="restartGame()">🔄 Restart Game</button>
-    </div>
+<div class="menu">
+    <button onclick="showMainPage()">🏠 Main Page</button>
+    <button onclick="showRefundPage()">💰 Refund System</button>
+    <button onclick="showViewDetailsPage()">🔍 View Details</button>
+</div>
 
-    <!-- Main Page -->
-    <div id="main-page">
-        <h1>🚨 Emergency Worldwide</h1>
-        <div id="map"></div>
-        <button onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
-        <button onclick="startPlacing('Fire Engine')">🚒 Place Fire Engine</button>
-        <button onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
-    </div>
+<!-- Main Page -->
+<div id="main-page">
+    <h1>🚨 Emergency Worldwide</h1>
+    <div id="map"></div>
+    <button onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
+    <button onclick="startPlacing('Fire Engine')">🚒 Place Fire Engine</button>
+    <button onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
+</div>
 
-    <!-- Refund Page -->
-    <div id="refund-page" style="display: none;">
-        <div class="details-container">
-            <h2>💰 Refund System</h2>
-            <h3>Buildings</h3>
-            <div id="refund-building-list" class="loading">Loading buildings...</div>
-            <h3>Vehicles</h3>
-            <div id="refund-vehicle-list" class="loading">Loading vehicles...</div>
-            <button class="back-btn" onclick="showMainPage()">Back to Main</button>
-        </div>
+<!-- Refund Page -->
+<div id="refund-page" style="display: none;">
+    <div>
+        <h2>💰 Refund System</h2>
+        <h3>Buildings</h3>
+        <div id="refund-building-list">Loading buildings...</div>
+        <h3>Vehicles</h3>
+        <div id="refund-vehicle-list">Loading vehicles...</div>
     </div>
+    <button onclick="showMainPage()">Back to Main</button>
+</div>
 
-    <!-- View Details Page -->
-    <div id="view-details-page" style="display: none;">
-        <div class="details-container">
-            <h2>📟 View Details</h2>
-            <h3>Buildings</h3>
-            <div id="building-list" class="loading">Loading buildings...</div>
-            <h3>Vehicles</h3>
-            <div id="vehicle-list" class="loading">Loading vehicles...</div>
-            <h3>Missions</h3>
-            <div id="mission-list" class="loading">Loading missions...</div>
-            <button class="back-btn" onclick="showMainPage()">Back to Main</button>
-        </div>
-    </div>
+<!-- View Details Page -->
+<div id="view-details-page" style="display: none;">
+    <h2>📟 View Details</h2>
+    <div id="building-list">Loading buildings...</div>
+    <div id="vehicle-list">Loading vehicles...</div>
+    <div id="mission-list">Loading missions...</div>
+    <button onclick="showMainPage()">Back to Main</button>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-    let map = L.map('map').setView([-37.8136, 144.9631], 12);  
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
+    // Set initial data
     let balance = 1000000;
     let buildings = [];
     let vehicles = [];
-    let missions = [];
     let markers = [];
     let placingType = null;
+
+    // Initialize the map
+    let map = L.map('map').setView([-37.8136, 144.9631], 12);  
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Load saved progress from localStorage
+    function loadProgress() {
+        let savedData = JSON.parse(localStorage.getItem('gameData'));
+        if (savedData) {
+            buildings = savedData.buildings || [];
+            vehicles = savedData.vehicles || [];
+            markers = savedData.markers || [];
+            markers.forEach(markerData => {
+                let marker = L.marker(markerData.data.location).addTo(map)
+                    .bindPopup(markerData.data.name)
+                    .on('click', function() {
+                        viewDetails(this);
+                    });
+            });
+        }
+    }
+
+    // Save progress to localStorage
+    function updateLocalStorage() {
+        let data = {
+            buildings: buildings,
+            vehicles: vehicles,
+            markers: markers
+        };
+        localStorage.setItem('gameData', JSON.stringify(data));
+    }
 
     // Start placing a building or vehicle
     function startPlacing(type) {
@@ -159,7 +127,7 @@
         let newMarker = L.marker(latlng).addTo(map)
             .bindPopup(`${placingType} - Click to view details`)
             .on('click', function() {
-                viewBuildingDetails(this);
+                viewDetails(this);
             });
 
         let markerData = {
@@ -177,11 +145,11 @@
         }
 
         placingType = null;
-        saveProgress();
+        updateLocalStorage(); // Save progress after placing
     });
 
-    // View building details on click
-    function viewBuildingDetails(marker) {
+    // View details when clicking on a marker
+    function viewDetails(marker) {
         let markerData = markers.find(m => m.marker === marker);
         if (!markerData) return;
 
@@ -195,9 +163,12 @@
             <ul>
                 ${vehicleList.map(vehicle => `<li>${vehicle.name}</li>`).join('')}
             </ul>
-            <button onclick="refundBuilding('${building.name}')">Sell for 20% Refund</button>
+            <button onclick="refundBuilding('${building.name}')">Refund (20%)</button>
         `;
-        document.getElementById('building-list').innerHTML = details; // Display details in the view
+        
+        document.getElementById('building-list').innerHTML = details;
+        document.getElementById('main-page').style.display = 'none';
+        document.getElementById('view-details-page').style.display = 'block';
     }
 
     // Refund system: 20% refund when selling a building or vehicle
@@ -209,18 +180,18 @@
             let building = buildings[buildingIndex];
             let refundAmount = calculateRefund(building.type);
             buildings.splice(buildingIndex, 1);
-            removeMarker(buildingName);  // Remove marker after refund
+            removeMarker(buildingName);
             alert(`You sold the ${building.name} for a refund of $${refundAmount.toFixed(2)}.`);
             balance += refundAmount;
         } else if (vehicleIndex !== -1) {
             let vehicle = vehicles[vehicleIndex];
             let refundAmount = calculateRefund(vehicle.type);
             vehicles.splice(vehicleIndex, 1);
-            removeMarker(vehicle.name);  // Remove marker after refund
+            removeMarker(vehicle.name);
             alert(`You sold the ${vehicle.name} for a refund of $${refundAmount.toFixed(2)}.`);
             balance += refundAmount;
         }
-        saveProgress();
+        updateLocalStorage();
         updateRefundPage();
     }
 
@@ -228,8 +199,8 @@
     function removeMarker(name) {
         let markerToRemove = markers.find(m => m.data.name === name);
         if (markerToRemove) {
-            map.removeLayer(markerToRemove.marker); // Remove marker from map
-            markers = markers.filter(m => m !== markerToRemove); // Remove marker from markers array
+            map.removeLayer(markerToRemove.marker); 
+            markers = markers.filter(m => m !== markerToRemove); 
         }
     }
 
@@ -246,91 +217,29 @@
         return price * 0.20;
     }
 
-    // Restart the game
-    function restartGame() {
-        localStorage.clear(); // Clear all saved data
-        alert('Game has been restarted!');
-        window.location.reload(); // Reload the page to reset the game
+    // Update refund page with buildings and vehicles
+    function updateRefundPage() {
+        document.getElementById('refund-building-list').innerHTML = buildings.map(building => `<div>${building.name} - Refund: $${calculateRefund(building.type).toFixed(2)}</div>`).join('');
+        document.getElementById('refund-vehicle-list').innerHTML = vehicles.map(vehicle => `<div>${vehicle.name} - Refund: $${calculateRefund(vehicle.type).toFixed(2)}</div>`).join('');
     }
 
     // Show the main page
     function showMainPage() {
-        document.getElementById("main-page").style.display = "block";
-        document.getElementById("view-details-page").style.display = "none";
-        document.getElementById("refund-page").style.display = "none";
+        document.getElementById('view-details-page').style.display = 'none';
+        document.getElementById('refund-page').style.display = 'none';
+        document.getElementById('main-page').style.display = 'block';
     }
 
-    // Show the view details page
-    function showViewDetailsPage() {
-        document.getElementById("main-page").style.display = "none";
-        document.getElementById("view-details-page").style.display = "block";
-        document.getElementById("refund-page").style.display = "none";
-        updateDetailsPage();
-    }
-
-    // Show the refund system page
+    // Show the refund page
     function showRefundPage() {
-        document.getElementById("main-page").style.display = "none";
-        document.getElementById("view-details-page").style.display = "none";
-        document.getElementById("refund-page").style.display = "block";
-        updateRefundPage();
+        document.getElementById('main-page').style.display = 'none';
+        document.getElementById('view-details-page').style.display = 'none';
+        document.getElementById('refund-page').style.display = 'block';
     }
 
-    // Update the refund page with buildings and vehicles
-    function updateRefundPage() {
-        const buildingListContainer = document.getElementById('refund-building-list');
-        const vehicleListContainer = document.getElementById('refund-vehicle-list');
-
-        buildingListContainer.innerHTML = buildings.length > 0 ? 
-            buildings.map(b => `<p>${b.name} - Location: ${b.location.lat.toFixed(3)}, ${b.location.lng.toFixed(3)} 
-                <button class="refund-btn" onclick="refundBuilding('${b.name}')">Refund</button></p>`).join('') :
-            'No buildings placed for refund';
-
-        vehicleListContainer.innerHTML = vehicles.length > 0 ? 
-            vehicles.map(v => `<p>${v.name} - Location: ${v.location.lat.toFixed(3)}, ${v.location.lng.toFixed(3)} 
-                <button class="refund-btn" onclick="refundBuilding('${v.name}')">Refund</button></p>`).join('') :
-            'No vehicles placed for refund';
-    }
-
-    // Save progress to localStorage
-    function saveProgress() {
-        localStorage.setItem('buildings', JSON.stringify(buildings));
-        localStorage.setItem('vehicles', JSON.stringify(vehicles));
-        localStorage.setItem('balance', balance);
-    }
-
-    // Load saved progress on page load
-    window.onload = function() {
-        const savedBuildings = localStorage.getItem('buildings');
-        const savedVehicles = localStorage.getItem('vehicles');
-        const savedBalance = localStorage.getItem('balance');
-
-        if (savedBuildings) buildings = JSON.parse(savedBuildings);
-        if (savedVehicles) vehicles = JSON.parse(savedVehicles);
-        if (savedBalance) balance = parseFloat(savedBalance);
-
-        updateDetailsPage();
-    };
-
-    // Update the details page with the latest buildings and vehicles
-    function updateDetailsPage() {
-        const buildingList = document.getElementById('building-list');
-        const vehicleList = document.getElementById('vehicle-list');
-        const missionList = document.getElementById('mission-list');
-
-        buildingList.innerHTML = buildings.length > 0 ? 
-            buildings.map(b => `<p>${b.name} - Location: ${b.location.lat.toFixed(3)}, ${b.location.lng.toFixed(3)}</p>`).join('') :
-            'No buildings placed';
-
-        vehicleList.innerHTML = vehicles.length > 0 ? 
-            vehicles.map(v => `<p>${v.name} - Location: ${v.location.lat.toFixed(3)}, ${v.location.lng.toFixed(3)}</p>`).join('') :
-            'No vehicles placed';
-
-        missionList.innerHTML = missions.length > 0 ? 
-            missions.map(m => `<p>Mission: ${m.name} - Location: ${m.location.lat.toFixed(3)}, ${m.location.lng.toFixed(3)}</p>`).join('') :
-            'No active missions';
-    }
-
+    // Initial page load
+    loadProgress();
 </script>
+
 </body>
 </html>
