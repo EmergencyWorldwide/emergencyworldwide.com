@@ -37,7 +37,7 @@
             let vehicles = JSON.parse(localStorage.getItem('vehicles')) || [];
             let playerFunds = parseFloat(localStorage.getItem('playerFunds')) || 1000; // Starting funds: 1,000
             let isFirstPurchase = localStorage.getItem('isFirstPurchase') !== 'false'; // Check if first purchase flag
-            let prices = {
+            let prices = JSON.parse(localStorage.getItem('prices')) || {
                 fireStation: 1000,
                 dmoShed: 500,
                 fireTruck: 1500,
@@ -62,6 +62,7 @@
                 });
 
                 updatePlayerFunds();
+                updatePriceButtons();
             }
 
             function saveGameData() {
@@ -69,6 +70,7 @@
                 localStorage.setItem('vehicles', JSON.stringify(vehicles));
                 localStorage.setItem('playerFunds', playerFunds.toString());
                 localStorage.setItem('isFirstPurchase', isFirstPurchase.toString());
+                localStorage.setItem('prices', JSON.stringify(prices));
                 console.log("✅ Game data saved successfully!");
             }
 
@@ -123,6 +125,14 @@
 
             function updatePlayerFunds() {
                 document.getElementById("funds").innerText = `Funds: $${playerFunds.toFixed(2)}`;
+            }
+
+            function updatePriceButtons() {
+                document.getElementById("fireStationBtn").innerText = `Buy Fire Station ($${prices.fireStation.toFixed(2)})`;
+                document.getElementById("dmoShedBtn").innerText = `Buy DMO Shed ($${prices.dmoShed.toFixed(2)})`;
+                document.getElementById("fireTruckBtn").innerText = `Buy Fire Truck ($${prices.fireTruck.toFixed(2)})`;
+                document.getElementById("ambulanceBtn").innerText = `Buy Ambulance ($${prices.ambulance.toFixed(2)})`;
+                document.getElementById("policeCarBtn").innerText = `Buy Police Car ($${prices.policeCar.toFixed(2)})`;
             }
 
             function selectItem(type) {
@@ -185,19 +195,14 @@
                 playerFunds -= itemPrice; // Deduct funds based on the item type
                 saveGameData();
                 updatePlayerFunds();
+                updatePriceButtons(); // Update the price buttons after purchase
+
                 selectedItem = null;
 
                 // Increase price of items after purchase by 10%
                 prices[selectedItem] = itemPrice * 1.10;
 
-                // Update button texts with the new prices
-                document.getElementById("fireStationBtn").innerText = `Buy Fire Station ($${prices.fireStation.toFixed(2)})`;
-                document.getElementById("dmoShedBtn").innerText = `Buy DMO Shed ($${prices.dmoShed.toFixed(2)})`;
-                document.getElementById("fireTruckBtn").innerText = `Buy Fire Truck ($${prices.fireTruck.toFixed(2)})`;
-                document.getElementById("ambulanceBtn").innerText = `Buy Ambulance ($${prices.ambulance.toFixed(2)})`;
-                document.getElementById("policeCarBtn").innerText = `Buy Police Car ($${prices.policeCar.toFixed(2)})`;
-
-                // Save prices after update
+                // Save updated prices
                 localStorage.setItem('prices', JSON.stringify(prices));
             });
 
