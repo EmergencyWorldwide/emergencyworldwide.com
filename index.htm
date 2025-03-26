@@ -3,279 +3,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emergency Worldwide</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <title>Emergency Worldwide Game</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #121212;
-            color: #fff;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-        }
-        #map {
-            height: 400px;
-            width: 100%;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-        .menu button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            cursor: pointer;
-            margin: 5px;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
-        }
-        .menu button:hover {
-            background-color: #0056b3;
-        }
-        .menu button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .page-title {
-            font-size: 2rem;
-            margin-bottom: 20px;
-        }
-        .instructions {
-            font-size: 1.2rem;
-            color: #ddd;
-            margin-bottom: 20px;
-        }
-        .loading-spinner {
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .alert {
-            background-color: #f44336;
-            color: white;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 5px;
-            display: none;
-        }
+        #map { height: 600px; }
+        #funds { font-size: 20px; font-weight: bold; margin: 10px; }
+        button { padding: 10px; margin: 5px; cursor: pointer; }
+        .button-container { margin-top: 10px; }
     </style>
 </head>
 <body>
 
-<div class="alert" id="alertBox">This location is already occupied by another building or vehicle.</div>
+    <h1>Emergency Worldwide Game</h1>
+    <div id="funds">Funds: $1,000</div>
 
-<!-- Main Page -->
-<div id="main-page">
-    <h1 class="page-title">🚨 Emergency Worldwide</h1>
-    <div class="instructions">Click on the map to place your buildings and vehicles. Follow the instructions below:</div>
-    <div id="map"></div>
-    <button class="menu" onclick="startPlacing('Fire Station')">🔥 Place Fire Station</button>
-    <button class="menu" onclick="startPlacing('Fire Engine')">🚒 Place Fire Engine</button>
-    <button class="menu" onclick="startPlacing('DMO Shed')">🔧 Place DMO Shed</button>
-</div>
-
-<!-- Refund Page -->
-<div id="refund-page" style="display: none;">
-    <div>
-        <h2 class="page-title">💰 Refund System</h2>
-        <h3>Buildings</h3>
-        <div id="refund-building-list" class="loading-spinner"></div>
-        <h3>Vehicles</h3>
-        <div id="refund-vehicle-list" class="loading-spinner"></div>
+    <!-- Buttons to purchase different buildings/vehicles -->
+    <div class="button-container">
+        <button id="fireStationBtn">Buy Fire Station ($0)</button>
+        <button id="dmoShedBtn">Buy DMO Shed ($0)</button>
+        <button id="fireTruckBtn">Buy Fire Truck ($0)</button>
+        <button id="ambulanceBtn">Buy Ambulance ($0)</button>
+        <button id="policeCarBtn">Buy Police Car ($0)</button>
     </div>
-    <button class="menu" onclick="showMainPage()">Back to Main</button>
-</div>
 
-<!-- View Details Page -->
-<div id="view-details-page" style="display: none;">
-    <h2 class="page-title">📟 View Details</h2>
-    <div id="building-list" class="loading-spinner"></div>
-    <div id="vehicle-list" class="loading-spinner"></div>
-    <div id="mission-list" class="loading-spinner"></div>
-    <button class="menu" onclick="showMainPage()">Back to Main</button>
-</div>
+    <!-- Map container -->
+    <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-    let balance = 1000000;
-    let buildings = [];
-    let vehicles = [];
-    let markers = [];
-    let placingType = null;
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let selectedItem = null;
+            let buildings = JSON.parse(localStorage.getItem('buildings')) || [];
+            let vehicles = JSON.parse(localStorage.getItem('vehicles')) || [];
+            let playerFunds = parseFloat(localStorage.getItem('playerFunds')) || 1000; // Starting funds: 1,000
+            let isFirstPurchase = localStorage.getItem('isFirstPurchase') !== 'false'; // Check if first purchase flag
+            let prices = {
+                fireStation: 1000,
+                dmoShed: 500,
+                fireTruck: 1500,
+                ambulance: 1200,
+                policeCar: 1000
+            };
 
-    let map = L.map('map').setView([-37.8136, 144.9631], 12);  
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            // Initialize Map
+            const map = L.map('map').setView([-37.8136, 144.9631], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
 
-    function loadProgress() {
-        let savedData = JSON.parse(localStorage.getItem('gameData'));
-        if (savedData) {
-            buildings = savedData.buildings || [];
-            vehicles = savedData.vehicles || [];
-            markers = savedData.markers || [];
+            // Load existing game data
+            function loadGameData() {
+                buildings.forEach((building) => {
+                    placeBuildingOnMap(building);
+                });
 
-            markers.forEach(markerData => {
-                let marker = L.marker(markerData.data.location).addTo(map)
-                    .bindPopup(markerData.data.name)
-                    .on('click', function() {
-                        viewDetails(this);
-                    });
-            });
-        }
-    }
+                vehicles.forEach((vehicle) => {
+                    placeVehicleOnMap(vehicle);
+                });
 
-    function updateLocalStorage() {
-        let data = {
-            buildings: buildings,
-            vehicles: vehicles,
-            markers: markers
-        };
-        localStorage.setItem('gameData', JSON.stringify(data));
-    }
-
-    function startPlacing(type) {
-        placingType = type;
-        alert(`Click on the map to place a ${type}.`);
-    }
-
-    map.on('click', function(event) {
-        if (!placingType) return;
-
-        let latlng = event.latlng;
-
-        if (isDuplicateLocation(latlng)) {
-            showAlert('This location is already occupied by another building or vehicle.');
-            return;
-        }
-
-        let newMarker = L.marker(latlng).addTo(map)
-            .bindPopup(`${placingType} - Click to view details`)
-            .on('click', function() {
-                viewDetails(this);
-            });
-
-        let markerData = {
-            type: placingType,
-            location: latlng,
-            name: `${placingType} at ${latlng.lat.toFixed(3)}, ${latlng.lng.toFixed(3)}`
-        };
-
-        markers.push({ marker: newMarker, data: markerData });
-
-        if (placingType === "Fire Engine") {
-            vehicles.push(markerData);
-        } else {
-            buildings.push(markerData);
-        }
-
-        placingType = null;
-        updateLocalStorage();
-    });
-
-    function isDuplicateLocation(latlng) {
-        for (let markerData of markers) {
-            let markerLocation = markerData.data.location;
-            if (Math.abs(markerLocation.lat - latlng.lat) < 0.0001 && Math.abs(markerLocation.lng - latlng.lng) < 0.0001) {
-                return true;
+                updatePlayerFunds();
             }
-        }
-        return false;
-    }
 
-    function viewDetails(marker) {
-        let markerData = markers.find(m => m.marker === marker);
-        if (!markerData) return;
+            function saveGameData() {
+                localStorage.setItem('buildings', JSON.stringify(buildings));
+                localStorage.setItem('vehicles', JSON.stringify(vehicles));
+                localStorage.setItem('playerFunds', playerFunds.toString());
+                localStorage.setItem('isFirstPurchase', isFirstPurchase.toString());
+                console.log("✅ Game data saved successfully!");
+            }
 
-        let building = markerData.data;
-        let vehicleList = vehicles.filter(v => v.location.lat === building.location.lat && v.location.lng === building.location.lng);
+            function placeBuildingOnMap(building) {
+                if (!building.lat || !building.lon) return;
+                let marker = L.marker([building.lat, building.lon], { icon: getBuildingIcon(building.type) })
+                    .addTo(map)
+                    .bindPopup(`<b>${building.type}</b><br>Location: ${building.lat.toFixed(4)}, ${building.lon.toFixed(4)}<br><button onclick="refundBuilding(${building.id})">Refund</button>`);
+                building.marker = marker;
+            }
 
-        let details = `
-            <h3>${building.name} - Details</h3>
-            <p>📍 Location: ${building.location.lat.toFixed(3)}, ${building.location.lng.toFixed(3)}</p>
-            <h4>Assigned Vehicles:</h4>
-            <ul>
-                ${vehicleList.map(vehicle => `<li>${vehicle.name}</li>`).join('')}
-            </ul>
-            <button onclick="refundBuilding('${building.name}')">Refund (20%)</button>
-        `;
-        
-        document.getElementById('building-list').innerHTML = details;
-        document.getElementById('main-page').style.display = 'none';
-        document.getElementById('view-details-page').style.display = 'block';
-    }
+            function placeVehicleOnMap(vehicle) {
+                if (!vehicle.lat || !vehicle.lon) return;
+                let marker = L.marker([vehicle.lat, vehicle.lon], { icon: getVehicleIcon(vehicle.type) })
+                    .addTo(map)
+                    .bindPopup(`<b>${vehicle.type}</b><br>Assigned to: ${vehicle.assignedBuilding || 'None'}<br><button onclick="refundVehicle(${vehicle.id})">Refund</button>`);
+                vehicle.marker = marker;
+            }
 
-    function refundBuilding(buildingName) {
-        let buildingIndex = buildings.findIndex(b => b.name === buildingName);
-        let vehicleIndex = vehicles.findIndex(v => v.name === buildingName);
+            // Refund system (20% refund)
+            window.refundBuilding = function(buildingId) {
+                const buildingIndex = buildings.findIndex(b => b.id === buildingId);
+                if (buildingIndex === -1) return;
 
-        if (buildingIndex !== -1) {
-            let building = buildings[buildingIndex];
-            let refundAmount = calculateRefund(building.type);
-            buildings.splice(buildingIndex, 1);
-            removeMarker(buildingName);
-            alert(`You sold the ${building.name} for a refund of $${refundAmount.toFixed(2)}.`);
-            balance += refundAmount;
-        } else if (vehicleIndex !== -1) {
-            let vehicle = vehicles[vehicleIndex];
-            let refundAmount = calculateRefund(vehicle.type);
-            vehicles.splice(vehicleIndex, 1);
-            removeMarker(vehicle.name);
-            alert(`You sold the ${vehicle.name} for a refund of $${refundAmount.toFixed(2)}.`);
-            balance += refundAmount;
-        }
-        updateLocalStorage();
-    }
+                const building = buildings[buildingIndex];
+                const refundAmount = building.price * 0.20;
 
-    function removeMarker(name) {
-        let markerToRemove = markers.find(m => m.data.name === name);
-        if (markerToRemove) {
-            map.removeLayer(markerToRemove.marker); 
-            markers = markers.filter(m => m !== markerToRemove); 
-        }
-    }
+                playerFunds += refundAmount;
+                buildings.splice(buildingIndex, 1); // Remove the building
+                building.marker.remove(); // Remove the building marker from the map
+                saveGameData();
 
-    function calculateRefund(type) {
-        let price = 0;
-        if (type === 'Fire Engine') {
-            price = 300000;
-        } else if (type === 'Fire Station') {
-            price = 500000;
-        } else if (type === 'DMO Shed') {
-            price = 100000;
-        }
-        return price * 0.20;
-    }
+                alert(`Refunded $${refundAmount.toFixed(2)} for ${building.type}. Current funds: $${playerFunds.toFixed(2)}`);
+                updatePlayerFunds();
+            }
 
-    function showAlert(message) {
-        let alertBox = document.getElementById('alertBox');
-        alertBox.textContent = message;
-        alertBox.style.display = 'block';
-        setTimeout(() => {
-            alertBox.style.display = 'none';
-        }, 3000);
-    }
+            window.refundVehicle = function(vehicleId) {
+                const vehicleIndex = vehicles.findIndex(v => v.id === vehicleId);
+                if (vehicleIndex === -1) return;
 
-    function showMainPage() {
-        document.getElementById('view-details-page').style.display = 'none';
-        document.getElementById('refund-page').style.display = 'none';
-        document.getElementById('main-page').style.display = 'block';
-    }
+                const vehicle = vehicles[vehicleIndex];
+                const refundAmount = vehicle.price * 0.20;
 
-    function showRefundPage() {
-        document.getElementById('main-page').style.display = 'none';
-        document.getElementById('view-details-page').style.display = 'none';
-        document.getElementById('refund-page').style.display = 'block';
-    }
+                playerFunds += refundAmount;
+                vehicles.splice(vehicleIndex, 1); // Remove the vehicle
+                vehicle.marker.remove(); // Remove the vehicle marker from the map
+                saveGameData();
 
-    loadProgress();
-</script>
+                alert(`Refunded $${refundAmount.toFixed(2)} for ${vehicle.type}. Current funds: $${playerFunds.toFixed(2)}`);
+                updatePlayerFunds();
+            }
 
+            function updatePlayerFunds() {
+                document.getElementById("funds").innerText = `Funds: $${playerFunds.toFixed(2)}`;
+            }
+
+            function selectItem(type) {
+                selectedItem = type;
+                alert(`Selected: ${type}. Click on the map to place it.`);
+            }
+
+            // Attach event listeners to buttons
+            document.getElementById("fireStationBtn").addEventListener("click", () => selectItem("fireStation"));
+            document.getElementById("dmoShedBtn").addEventListener("click", () => selectItem("dmoShed"));
+            document.getElementById("fireTruckBtn").addEventListener("click", () => selectItem("fireTruck"));
+            document.getElementById("ambulanceBtn").addEventListener("click", () => selectItem("ambulance"));
+            document.getElementById("policeCarBtn").addEventListener("click", () => selectItem("policeCar"));
+
+            // Place item on the map when clicked
+            map.on('click', function (event) {
+                if (!selectedItem) {
+                    alert("Please select a building or vehicle first.");
+                    return;
+                }
+
+                const { lat, lng } = event.latlng;
+
+                let itemPrice = prices[selectedItem];
+
+                // Apply 25% discount on first purchase
+                if (isFirstPurchase) {
+                    itemPrice *= 0.75; // 25% off
+                    isFirstPurchase = false; // Disable the discount for future purchases
+                }
+
+                if (playerFunds < itemPrice) {
+                    alert("Insufficient funds!");
+                    return;
+                }
+
+                if (selectedItem === "fireStation" || selectedItem === "dmoShed") {
+                    const newBuilding = { 
+                        id: Date.now(), 
+                        type: selectedItem, 
+                        lat, 
+                        lon: lng, 
+                        price: itemPrice
+                    };
+                    buildings.push(newBuilding);
+                    placeBuildingOnMap(newBuilding);
+                } else {
+                    const newVehicle = { 
+                        id: Date.now(), 
+                        type: selectedItem, 
+                        lat, 
+                        lon: lng, 
+                        assignedBuilding: null, 
+                        price: itemPrice
+                    };
+                    vehicles.push(newVehicle);
+                    placeVehicleOnMap(newVehicle);
+                }
+
+                playerFunds -= itemPrice; // Deduct funds based on the item type
+                saveGameData();
+                updatePlayerFunds();
+                selectedItem = null;
+
+                // Increase price of items after purchase by 10%
+                prices[selectedItem] = itemPrice * 1.10;
+
+                // Update button texts with the new prices
+                document.getElementById("fireStationBtn").innerText = `Buy Fire Station ($${prices.fireStation.toFixed(2)})`;
+                document.getElementById("dmoShedBtn").innerText = `Buy DMO Shed ($${prices.dmoShed.toFixed(2)})`;
+                document.getElementById("fireTruckBtn").innerText = `Buy Fire Truck ($${prices.fireTruck.toFixed(2)})`;
+                document.getElementById("ambulanceBtn").innerText = `Buy Ambulance ($${prices.ambulance.toFixed(2)})`;
+                document.getElementById("policeCarBtn").innerText = `Buy Police Car ($${prices.policeCar.toFixed(2)})`;
+
+                // Save prices after update
+                localStorage.setItem('prices', JSON.stringify(prices));
+            });
+
+            function getBuildingIcon(type) {
+                let iconUrl;
+                if (type === 'fireStation') iconUrl = 'icons/firestation.png';
+                else if (type === 'dmoShed') iconUrl = 'icons/dmo.png';
+                else iconUrl = 'icons/default.png'; // Default fallback icon
+
+                return L.icon({
+                    iconUrl: iconUrl,
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 40],
+                    popupAnchor: [0, -30]
+                });
+            }
+
+            function getVehicleIcon(type) {
+                let iconUrl;
+                if (type === 'fireTruck') iconUrl = 'icons/firetruck.png';
+                else if (type === 'ambulance') iconUrl = 'icons/ambulance.png';
+                else if (type === 'policeCar') iconUrl = 'icons/policecar.png';
+                else iconUrl = 'icons/default.png'; // Default fallback icon
+
+                return L.icon({
+                    iconUrl: iconUrl,
+                    iconSize: [35, 35],
+                    iconAnchor: [17, 35],
+                    popupAnchor: [0, -25]
+                });
+            }
+
+            // Load saved game data
+            loadGameData();
+        });
+    </script>
 </body>
 </html>
