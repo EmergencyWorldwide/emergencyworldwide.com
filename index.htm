@@ -1,243 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emergency Worldwide Game</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <style>
-        #map { height: 600px; }
-        #funds { font-size: 20px; font-weight: bold; margin: 10px; }
-        button { padding: 10px; margin: 5px; cursor: pointer; }
-        .button-container { margin-top: 10px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Webhook Bot - Image Upload</title>
 </head>
 <body>
+  <h1>Upload Image to Send to Discord</h1>
+  
+  <!-- File input for image upload -->
+  <input type="file" id="imageUpload" multiple>
+  <button onclick="uploadAndSend()">Upload and Send to Discord</button>
 
-    <h1>Emergency Worldwide Game</h1>
-    <div id="funds">Funds: $1,000</div>
+  <div id="response"></div>
 
-    <!-- Buttons to purchase different buildings/vehicles -->
-    <div class="button-container">
-        <button id="fireStationBtn">Buy Fire Station ($0)</button>
-        <button id="dmoShedBtn">Buy DMO Shed ($0)</button>
-        <button id="fireTruckBtn">Buy Fire Truck ($0)</button>
-        <button id="ambulanceBtn">Buy Ambulance ($0)</button>
-        <button id="policeCarBtn">Buy Police Car ($0)</button>
-    </div>
+  <script>
+    const webhookURL = 'https://discord.com/api/webhooks/1311478730761441281/GFS0Ez64k4GDuIX4Syzh575Gh6WzaDn0D2_CxPEgoxVki2snR49k8_CH7Egm4JfNhniU'; // Paste your webhook URL here.
 
-    <!-- Map container -->
-    <div id="map"></div>
+    // Function to handle image upload and send to Discord
+    function uploadAndSend() {
+      const files = document.getElementById("imageUpload").files;
 
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            let selectedItem = null;
-            let buildings = JSON.parse(localStorage.getItem('buildings')) || [];
-            let vehicles = JSON.parse(localStorage.getItem('vehicles')) || [];
-            let playerFunds = parseFloat(localStorage.getItem('playerFunds')) || 1000; // Starting funds: 1,000
-            let isFirstPurchase = localStorage.getItem('isFirstPurchase') !== 'false'; // Check if first purchase flag
-            let prices = JSON.parse(localStorage.getItem('prices')) || {
-                fireStation: 1000,
-                dmoShed: 500,
-                fireTruck: 1500,
-                ambulance: 1200,
-                policeCar: 1000
-            };
+      if (files.length === 0) {
+        document.getElementById("response").innerText = "Please select an image to upload.";
+        return;
+      }
 
-            // Initialize Map
-            const map = L.map('map').setView([-37.8136, 144.9631], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
-
-            // Load existing game data
-            function loadGameData() {
-                buildings.forEach((building) => {
-                    placeBuildingOnMap(building);
-                });
-
-                vehicles.forEach((vehicle) => {
-                    placeVehicleOnMap(vehicle);
-                });
-
-                updatePlayerFunds();
-                updatePriceButtons();
-            }
-
-            function saveGameData() {
-                localStorage.setItem('buildings', JSON.stringify(buildings));
-                localStorage.setItem('vehicles', JSON.stringify(vehicles));
-                localStorage.setItem('playerFunds', playerFunds.toString());
-                localStorage.setItem('isFirstPurchase', isFirstPurchase.toString());
-                localStorage.setItem('prices', JSON.stringify(prices));
-                console.log("✅ Game data saved successfully!");
-            }
-
-            function placeBuildingOnMap(building) {
-                if (!building.lat || !building.lon) return;
-                let marker = L.marker([building.lat, building.lon], { icon: getBuildingIcon(building.type) })
-                    .addTo(map)
-                    .bindPopup(`<b>${building.type}</b><br>Location: ${building.lat.toFixed(4)}, ${building.lon.toFixed(4)}<br><button onclick="refundBuilding(${building.id})">Refund</button>`);
-                building.marker = marker;
-            }
-
-            function placeVehicleOnMap(vehicle) {
-                if (!vehicle.lat || !vehicle.lon) return;
-                let marker = L.marker([vehicle.lat, vehicle.lon], { icon: getVehicleIcon(vehicle.type) })
-                    .addTo(map)
-                    .bindPopup(`<b>${vehicle.type}</b><br>Assigned to: ${vehicle.assignedBuilding || 'None'}<br><button onclick="refundVehicle(${vehicle.id})">Refund</button>`);
-                vehicle.marker = marker;
-            }
-
-            // Refund system (20% refund)
-            window.refundBuilding = function(buildingId) {
-                const buildingIndex = buildings.findIndex(b => b.id === buildingId);
-                if (buildingIndex === -1) return;
-
-                const building = buildings[buildingIndex];
-                const refundAmount = building.price * 0.20;
-
-                playerFunds += refundAmount;
-                buildings.splice(buildingIndex, 1); // Remove the building
-                building.marker.remove(); // Remove the building marker from the map
-                saveGameData();
-
-                alert(`Refunded $${refundAmount.toFixed(2)} for ${building.type}. Current funds: $${playerFunds.toFixed(2)}`);
-                updatePlayerFunds();
-            }
-
-            window.refundVehicle = function(vehicleId) {
-                const vehicleIndex = vehicles.findIndex(v => v.id === vehicleId);
-                if (vehicleIndex === -1) return;
-
-                const vehicle = vehicles[vehicleIndex];
-                const refundAmount = vehicle.price * 0.20;
-
-                playerFunds += refundAmount;
-                vehicles.splice(vehicleIndex, 1); // Remove the vehicle
-                vehicle.marker.remove(); // Remove the vehicle marker from the map
-                saveGameData();
-
-                alert(`Refunded $${refundAmount.toFixed(2)} for ${vehicle.type}. Current funds: $${playerFunds.toFixed(2)}`);
-                updatePlayerFunds();
-            }
-
-            function updatePlayerFunds() {
-                document.getElementById("funds").innerText = `Funds: $${playerFunds.toFixed(2)}`;
-            }
-
-            function updatePriceButtons() {
-                document.getElementById("fireStationBtn").innerText = `Buy Fire Station ($${prices.fireStation.toFixed(2)})`;
-                document.getElementById("dmoShedBtn").innerText = `Buy DMO Shed ($${prices.dmoShed.toFixed(2)})`;
-                document.getElementById("fireTruckBtn").innerText = `Buy Fire Truck ($${prices.fireTruck.toFixed(2)})`;
-                document.getElementById("ambulanceBtn").innerText = `Buy Ambulance ($${prices.ambulance.toFixed(2)})`;
-                document.getElementById("policeCarBtn").innerText = `Buy Police Car ($${prices.policeCar.toFixed(2)})`;
-            }
-
-            function selectItem(type) {
-                selectedItem = type;
-                alert(`Selected: ${type}. Click on the map to place it.`);
-            }
-
-            // Attach event listeners to buttons
-            document.getElementById("fireStationBtn").addEventListener("click", () => selectItem("fireStation"));
-            document.getElementById("dmoShedBtn").addEventListener("click", () => selectItem("dmoShed"));
-            document.getElementById("fireTruckBtn").addEventListener("click", () => selectItem("fireTruck"));
-            document.getElementById("ambulanceBtn").addEventListener("click", () => selectItem("ambulance"));
-            document.getElementById("policeCarBtn").addEventListener("click", () => selectItem("policeCar"));
-
-            // Place item on the map when clicked
-            map.on('click', function (event) {
-                if (!selectedItem) {
-                    alert("Please select a building or vehicle first.");
-                    return;
-                }
-
-                const { lat, lng } = event.latlng;
-
-                let itemPrice = prices[selectedItem];
-
-                // Apply 25% discount on first purchase
-                if (isFirstPurchase) {
-                    itemPrice *= 0.75; // 25% off
-                    isFirstPurchase = false; // Disable the discount for future purchases
-                }
-
-                if (playerFunds < itemPrice) {
-                    alert("Insufficient funds!");
-                    return;
-                }
-
-                if (selectedItem === "fireStation" || selectedItem === "dmoShed") {
-                    const newBuilding = { 
-                        id: Date.now(), 
-                        type: selectedItem, 
-                        lat, 
-                        lon: lng, 
-                        price: itemPrice
-                    };
-                    buildings.push(newBuilding);
-                    placeBuildingOnMap(newBuilding);
-                } else {
-                    const newVehicle = { 
-                        id: Date.now(), 
-                        type: selectedItem, 
-                        lat, 
-                        lon: lng, 
-                        assignedBuilding: null, 
-                        price: itemPrice
-                    };
-                    vehicles.push(newVehicle);
-                    placeVehicleOnMap(newVehicle);
-                }
-
-                playerFunds -= itemPrice; // Deduct funds based on the item type
-                saveGameData();
-                updatePlayerFunds();
-                updatePriceButtons(); // Update the price buttons after purchase
-
-                selectedItem = null;
-
-                // Increase price of items after purchase by 10%
-                prices[selectedItem] = itemPrice * 1.10;
-
-                // Save updated prices
-                localStorage.setItem('prices', JSON.stringify(prices));
-            });
-
-            function getBuildingIcon(type) {
-                let iconUrl;
-                if (type === 'fireStation') iconUrl = 'icons/firestation.png';
-                else if (type === 'dmoShed') iconUrl = 'icons/dmo.png';
-                else iconUrl = 'icons/default.png'; // Default fallback icon
-
-                return L.icon({
-                    iconUrl: iconUrl,
-                    iconSize: [40, 40],
-                    iconAnchor: [20, 40],
-                    popupAnchor: [0, -30]
-                });
-            }
-
-            function getVehicleIcon(type) {
-                let iconUrl;
-                if (type === 'fireTruck') iconUrl = 'icons/firetruck.png';
-                else if (type === 'ambulance') iconUrl = 'icons/ambulance.png';
-                else if (type === 'policeCar') iconUrl = 'icons/policecar.png';
-                else iconUrl = 'icons/default.png'; // Default fallback icon
-
-                return L.icon({
-                    iconUrl: iconUrl,
-                    iconSize: [35, 35],
-                    iconAnchor: [17, 35],
-                    popupAnchor: [0, -25]
-                });
-            }
-
-            // Load saved game data
-            loadGameData();
+      Array.from(files).forEach(file => {
+        const formData = new FormData();
+        formData.append("file", file); // Append file to form data
+        
+        // Upload the image to your server (replace this URL with your server API)
+        fetch('YOUR_SERVER_API_URL', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success && data.imageUrl) {
+            sendImageToDiscord(data.imageUrl, file.name);
+          } else {
+            document.getElementById("response").innerText = "Failed to upload the image.";
+          }
+        })
+        .catch(error => {
+          console.error('Error uploading image:', error);
+          document.getElementById("response").innerText = "Error uploading the image.";
         });
-    </script>
+      });
+    }
+
+    // Send the image to Discord
+    function sendImageToDiscord(imageUrl, filename) {
+      const payload = {
+        content: `Here is the image: ${filename}`,
+        embeds: [
+          {
+            image: {
+              url: imageUrl
+            }
+          }
+        ]
+      };
+
+      fetch(webhookURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById("response").innerText = "Image sent to Discord!";
+      })
+      .catch(error => {
+        console.error('Error sending image to Discord:', error);
+        document.getElementById("response").innerText = "Failed to send image to Discord.";
+      });
+    }
+  </script>
 </body>
 </html>
