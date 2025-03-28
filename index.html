@@ -3,154 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aussie Fire Chief Simulator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <title>Fire Chief Simulator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
     <style>
-        #map {
+        body {
+            margin: 0;
+            padding: 0;
             height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #map {
+            flex-grow: 1;
             width: 100%;
-            position: relative;
             z-index: 1;
         }
         .control-panel {
-            position: fixed;
-            top: 70px;
-            left: 10px;
+            position: absolute;
+            top: 10px;
+            right: 10px;
             z-index: 1000;
             background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        .building-btn {
-            margin: 5px;
-            width: 100%;
-            text-align: left;
-            position: relative;
-            padding-left: 35px;
-        }
-        .building-btn i {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-        .vehicle-btn {
-            margin: 5px;
-            width: 100%;
-            text-align: left;
-            position: relative;
-            padding-left: 35px;
-        }
-        .vehicle-btn i {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-        .placement-guide {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255,255,255,0.9);
             padding: 15px;
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 300px;
+        }
+        .mdt-panel {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
             z-index: 1000;
-            display: none;
-            text-align: center;
-        }
-        .placement-guide.active {
-            display: block;
-        }
-        .building-popup {
-            min-width: 200px;
-        }
-        .building-popup .vehicle-list {
-            margin: 10px 0;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        .vehicle-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 5px 0;
-            padding: 5px;
-            background: #f8f9fa;
-            border-radius: 3px;
-        }
-        .station-select-modal .modal-body {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .station-card {
-            margin: 10px 0;
-            padding: 10px;
-            border: 1px solid #dee2e6;
+            background: white;
+            padding: 15px;
             border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .station-card:hover {
-            background-color: #f8f9fa;
-        }
-        .station-card.selected {
-            background-color: #e9ecef;
-            border-color: #0d6efd;
-        }
-        .alert-mission {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-        .popup-content {
-            margin: 5px 0;
-        }
-        .refund-btn {
-            margin-top: 5px;
-            width: 100%;
-        }
-        .vehicle-list {
-            margin-top: 10px;
-            max-height: 150px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            width: 350px;
+            max-height: 500px;
             overflow-y: auto;
-        }
-        .vehicle-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 5px;
-            border-bottom: 1px solid #eee;
-        }
-        #mdt-panel {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 400px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            z-index: 1000;
-        }
-        .mdt-header {
-            background: #343a40;
-            color: white;
-            padding: 10px;
-            border-top-left-radius: 5px;
-            border-top-right-radius: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .mdt-content {
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 10px;
         }
         .mission-card {
             margin-bottom: 10px;
@@ -161,6 +53,22 @@
         }
         .mission-card.warning {
             border-left-color: #ffc107;
+        }
+        .vehicle-card {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .vehicle-card:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-2px);
+        }
+        .vehicle-card.selected {
+            background-color: #e9ecef;
+            border-color: #0d6efd;
         }
         .vehicle-card .capabilities {
             font-size: 0.8em;
@@ -179,686 +87,55 @@
         .vehicle-card.assigned .mission-info {
             display: block;
         }
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+        }
+        .mission-icon {
+            font-size: 20px;
+            text-align: center;
+            line-height: 25px;
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark">
-        <div class="container-fluid">
-            <span class="navbar-brand mb-0 h1">Aussie Fire Chief Simulator</span>
-            <span class="navbar-text text-white">
-                Budget: $<span id="budget">1000000</span> AUD
-            </span>
+    <div id="map"></div>
+    
+    <div class="control-panel">
+        <h5>Fire Chief Control Panel</h5>
+        <div class="mb-3">
+            Budget: $<span id="budget">100000</span>
         </div>
-    </nav>
-
-    <div class="container-fluid mt-3">
-        <div class="row">
-            <div class="col-md-9">
-                <div id="map"></div>
-            </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        Purchase Buildings & Vehicles
-                    </div>
-                    <div class="card-body">
-                        <h5>Buildings</h5>
-                        <button class="btn btn-primary building-btn" onclick="selectBuilding('fire_station')">
-                            <i class="bi bi-building"></i>
-                            Fire Station ($500,000)
-                        </button>
-                        <button class="btn btn-info building-btn" onclick="selectBuilding('hospital')">
-                            <i class="bi bi-building"></i>
-                            Hospital ($1,000,000)
-                        </button>
-                        
-                        <h5 class="mt-3">Vehicles</h5>
-                        <button class="btn btn-danger building-btn" onclick="purchaseVehicle('fire_truck')">
-                            <i class="bi bi-truck"></i>
-                            Fire Truck ($100,000)
-                        </button>
-                        <button class="btn btn-warning building-btn" onclick="purchaseVehicle('ambulance')">
-                            <i class="bi bi-truck"></i>
-                            Ambulance ($80,000)
-                        </button>
-                        <button class="btn btn-success building-btn" onclick="purchaseVehicle('frnsw_truck')">
-                            <i class="bi bi-truck"></i>
-                            FRNSW Truck ($120,000)
-                        </button>
-                        <button class="btn btn-warning building-btn" onclick="purchaseVehicle('cfa_truck')">
-                            <i class="bi bi-truck"></i>
-                            CFA Truck ($110,000)
-                        </button>
-                        <button class="btn btn-danger building-btn" onclick="purchaseVehicle('cfa_pumper')">
-                            <i class="bi bi-truck"></i>
-                            CFA Heavy Pumper ($150,000)
-                        </button>
-                        <button class="btn btn-info building-btn" onclick="purchaseVehicle('frv_pumper')">
-                            <i class="bi bi-truck"></i>
-                            FRV Heavy Pumper ($150,000)
-                        </button>
-                    </div>
-                </div>
-            </div>
+        <div class="mb-3">
+            <button class="btn btn-primary w-100 mb-2" onclick="showBuildingPurchase()">
+                <i class="bi bi-building"></i> Place Fire Station
+            </button>
+            <button class="btn btn-success w-100" onclick="showVehiclePurchase()">
+                <i class="bi bi-truck"></i> Purchase Vehicle
+            </button>
         </div>
     </div>
 
-    <div id="mdt-panel">
-        <div class="mdt-header">
-            <span>Mobile Data Terminal (MDT)</span>
-            <button class="minimize-btn" onclick="toggleMDT()">−</button>
+    <div class="mdt-panel" id="mdt">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Mobile Data Terminal</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="toggleMDT()">
+                <i class="bi bi-chevron-down"></i>
+            </button>
         </div>
-        <div class="mdt-content" id="mdt-content">
-            <!-- Mission cards will be added here -->
-        </div>
+        <div id="mdt-content"></div>
     </div>
 
-    <div id="placement-guide" class="placement-guide">
-        <h5>Building Placement Mode</h5>
-        <p>Click on the map to place the selected building</p>
-        <p>Press ESC to cancel</p>
-    </div>
+    <div class="alert-container" id="alert-container"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script>
-        let map;
-        let selectedBuilding = null;
-        let buildings = {};
-        let missions = {};
-        let missionMarkers = {};
-        let socket = io();
-        let isMDTMinimized = false;
-        
-        // Initialize map centered on Australia
-        map = L.map('map').setView([-25.2744, 133.7751], 4);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: ' OpenStreetMap contributors'
-        }).addTo(map);
-
-        function toggleMDT() {
-            const content = document.querySelector('.mdt-content');
-            const btn = document.querySelector('.minimize-btn');
-            if (isMDTMinimized) {
-                content.style.display = 'block';
-                btn.textContent = '−';
-            } else {
-                content.style.display = 'none';
-                btn.textContent = '+';
-            }
-            isMDTMinimized = !isMDTMinimized;
-        }
-
-        async function updateMDT() {
-            fetch('/api/missions')
-                .then(response => response.json())
-                .then(missions => {
-                    const mdt = document.getElementById('mdt-content');
-                    mdt.innerHTML = '';
-                    
-                    missions.forEach(mission => {
-                        const missionType = mission.type.replace('_', ' ').toUpperCase();
-                        const card = document.createElement('div');
-                        card.className = `card mission-card ${mission.type === 'bush_fire' ? 'danger' : mission.type === 'structure_fire' ? 'warning' : 'secondary'} mb-2`;
-                        card.innerHTML = `
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <h6 class="card-title mb-1">${missionType}</h6>
-                                        <p class="card-text small mb-1">${mission.description}</p>
-                                        <div class="text-muted small">
-                                            <i class="bi bi-geo-alt"></i> ${mission.lat.toFixed(4)}, ${mission.lng.toFixed(4)}
-                                        </div>
-                                    </div>
-                                    <div class="text-end">
-                                        ${mission.status === 'active' ? `
-                                            <button class="btn btn-sm btn-primary" onclick="showVehicleSelection(${mission.id}, '${mission.type}')">
-                                                <i class="bi bi-truck"></i> Assign Vehicle
-                                            </button>
-                                        ` : mission.status === 'assigned' ? `
-                                            <button class="btn btn-sm btn-success" onclick="completeMission(${mission.id})">
-                                                <i class="bi bi-check-lg"></i> Complete
-                                            </button>
-                                        ` : `
-                                            <span class="badge bg-secondary">Completed</span>
-                                        `}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                        mdt.appendChild(card);
-                    });
-                });
-        }
-
-        async function showVehicleSelection(missionId, missionType) {
-            const buildingSelect = document.createElement('div');
-            buildingSelect.className = 'modal vehicle-select-modal';
-            buildingSelect.innerHTML = `
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Select Vehicle for ${missionType.replace('_', ' ').toUpperCase()}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle me-2"></i>
-                                Select a vehicle capable of handling this type of mission.
-                            </div>
-                            <div id="vehicle-list">
-                                <div class="text-center">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                    <p class="mt-2">Loading vehicles...</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" onclick="confirmVehicleAssignment(${missionId})" disabled id="confirm-assignment">
-                                Assign Vehicle
-                            </button>
-                        </div>
-                    </div>
-                </div>`;
-            document.body.appendChild(buildingSelect);
-            const modal = new bootstrap.Modal(buildingSelect);
-            modal.show();
-            
-            // Load vehicles from all buildings
-            const vehicleList = document.getElementById('vehicle-list');
-            let hasVehicles = false;
-            let vehicleHtml = '';
-            
-            try {
-                for (const [buildingId, marker] of Object.entries(buildings)) {
-                    const response = await fetch(`/api/buildings/${buildingId}/vehicles`);
-                    if (!response.ok) {
-                        throw new Error(`Failed to load vehicles for building ${buildingId}`);
-                    }
-                    const vehicles = await response.json();
-                    
-                    if (vehicles.length > 0) {
-                        hasVehicles = true;
-                        const buildingContent = marker.getPopup().getContent();
-                        const buildingName = buildingContent.split('<strong>')[1].split('</strong>')[0];
-                        
-                        vehicleHtml += `
-                            <div class="building-section mb-3">
-                                <h6 class="mb-2">
-                                    <i class="bi bi-building"></i> ${buildingName}
-                                </h6>
-                                <div class="vehicles-container">
-                                    ${vehicles.map(vehicle => `
-                                        <div class="vehicle-card ${vehicle.assigned_to_mission ? 'assigned' : ''}" 
-                                             data-vehicle-id="${vehicle.id}" 
-                                             onclick="selectVehicle(this, '${missionType}')"
-                                             data-capabilities='${JSON.stringify(vehicle.capabilities)}'>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <strong>${vehicle.type.replace('_', ' ').toUpperCase()}</strong>
-                                                    <span class="status ${vehicle.assigned_to_mission ? 'assigned' : 'available'}">
-                                                        ${vehicle.assigned_to_mission ? 'On Mission' : 'Available'}
-                                                    </span>
-                                                    <div class="text-muted small">ID: ${vehicle.id}</div>
-                                                    <div class="capabilities">
-                                                        <i class="bi bi-gear"></i> Can handle: ${vehicle.capabilities.map(c => c.replace('_', ' ')).join(', ')}
-                                                    </div>
-                                                    ${vehicle.assigned_to_mission ? `
-                                                        <div class="mission-info">
-                                                            <i class="bi bi-exclamation-triangle"></i>
-                                                            Assigned to ${vehicle.mission_type.replace('_', ' ').toUpperCase()} #${vehicle.mission_id}
-                                                        </div>
-                                                    ` : ''}
-                                                </div>
-                                                <i class="bi bi-truck"></i>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>`;
-                    }
-                }
-                
-                vehicleList.innerHTML = hasVehicles ? vehicleHtml : `
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        No vehicles available. Purchase vehicles from the control panel.
-                    </div>`;
-            } catch (error) {
-                vehicleList.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Error loading vehicles: ${error.message}
-                    </div>`;
-            }
-            
-            buildingSelect.addEventListener('hidden.bs.modal', () => {
-                document.body.removeChild(buildingSelect);
-            });
-        }
-
-        function selectVehicle(card, missionType) {
-            // Check if vehicle is already assigned
-            if (card.classList.contains('assigned')) {
-                showAlert('This vehicle is already assigned to another mission', 'warning');
-                return;
-            }
-            
-            // Check if vehicle can handle this mission type
-            const capabilities = JSON.parse(card.dataset.capabilities);
-            if (!capabilities.includes(missionType)) {
-                showAlert(`This vehicle cannot handle ${missionType.replace('_', ' ')} missions`, 'warning');
-                return;
-            }
-            
-            // Remove selected class from all cards
-            document.querySelectorAll('.vehicle-card').forEach(c => c.classList.remove('selected'));
-            // Add selected class to clicked card
-            card.classList.add('selected');
-            // Enable assign button
-            document.getElementById('confirm-assignment').disabled = false;
-        }
-
-        async function assignMission(missionId, vehicleId) {
-            try {
-                const response = await fetch(`/api/missions/${missionId}/assign`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        vehicle_id: vehicleId
-                    })
-                });
-
-                const data = await response.json();
-                if (response.ok) {
-                    updateMDT();
-                    showAlert('Mission assigned successfully');
-                } else {
-                    showAlert(data.error || 'Failed to assign vehicle to mission', 'danger');
-                }
-            } catch (error) {
-                showAlert('Error assigning vehicle: ' + error.message, 'danger');
-            }
-        }
-
-        async function completeMission(missionId) {
-            const response = await fetch(`/api/missions/${missionId}/complete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                if (missionMarkers[missionId]) {
-                    map.removeLayer(missionMarkers[missionId]);
-                    delete missionMarkers[missionId];
-                }
-                delete missions[missionId];
-                updateMDT();
-                showAlert('Mission completed successfully');
-            }
-        }
-
-        async function updateGameState() {
-            const response = await fetch('/api/state');
-            const data = await response.json();
-            document.getElementById('budget').textContent = data.budget.toLocaleString();
-            
-            // Update buildings and vehicles on map
-            data.buildings.forEach(building => {
-                if (!buildings[building.id]) {
-                    const marker = L.marker([building.lat, building.lng]).addTo(map);
-                    const buildingId = building.id;
-                    buildings[buildingId] = marker;
-                    
-                    // Create popup with refund button
-                    const popupContent = `
-                        <div class="popup-content">
-                            <strong>${building.type.replace('_', ' ').toUpperCase()}</strong>
-                            <div class="vehicle-list" id="vehicles-${buildingId}">
-                                ${building.vehicles.map(vehicle => `
-                                    <div class="vehicle-item">
-                                        <span>${vehicle.type.replace('_', ' ').toUpperCase()}</span>
-                                        <button class="btn btn-sm btn-danger" onclick="refundItem(${vehicle.id}, 'vehicle')">
-                                            Sell
-                                        </button>
-                                    </div>
-                                `).join('') || 'No vehicles'}
-                            </div>
-                            <button class="btn btn-danger btn-sm refund-btn" onclick="refundItem(${buildingId}, 'building')">
-                                Sell Building (70% refund)
-                            </button>
-                        </div>`;
-                    
-                    marker.bindPopup(popupContent);
-                }
-            });
-
-            // Update missions
-            data.missions.forEach(mission => {
-                if (!missions[mission.id]) {
-                    const missionMarker = L.marker([mission.lat, mission.lng], {
-                        icon: L.divIcon({
-                            className: 'mission-icon',
-                            html: '🚨',
-                            iconSize: [25, 25]
-                        })
-                    }).addTo(map);
-                    missionMarkers[mission.id] = missionMarker;
-                    missions[mission.id] = mission;
-                }
-            });
-        }
-
-        function focusOnMission(missionId) {
-            const mission = missions[missionId];
-            if (mission) {
-                map.setView([mission.lat, mission.lng], 12);
-            }
-        }
-
-        async function purchaseVehicle(type) {
-            const buildingSelect = document.createElement('div');
-            buildingSelect.className = 'modal station-select-modal';
-            buildingSelect.innerHTML = `
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Select Station for ${type.replace('_', ' ').toUpperCase()}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            ${Object.entries(buildings).map(([id, marker]) => {
-                                const building = marker.getPopup().getContent();
-                                const buildingName = building.split('<strong>')[1].split('</strong>')[0];
-                                return `
-                                    <div class="station-card" data-building-id="${id}" onclick="selectStation(this)">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <strong>${buildingName}</strong>
-                                                <div class="text-muted small">ID: ${id}</div>
-                                            </div>
-                                            <i class="bi bi-building"></i>
-                                        </div>
-                                    </div>`;
-                            }).join('')}
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" onclick="confirmVehiclePurchase('${type}')" disabled id="confirm-purchase">
-                                Purchase Vehicle
-                            </button>
-                        </div>
-                    </div>
-                </div>`;
-            document.body.appendChild(buildingSelect);
-            const modal = new bootstrap.Modal(buildingSelect);
-            modal.show();
-            buildingSelect.addEventListener('hidden.bs.modal', () => {
-                document.body.removeChild(buildingSelect);
-            });
-        }
-
-        function selectStation(card) {
-            // Remove selected class from all cards
-            document.querySelectorAll('.station-card').forEach(c => c.classList.remove('selected'));
-            // Add selected class to clicked card
-            card.classList.add('selected');
-            // Enable purchase button
-            document.getElementById('confirm-purchase').disabled = false;
-        }
-
-        async function confirmVehiclePurchase(type) {
-            const selectedCard = document.querySelector('.station-card.selected');
-            if (!selectedCard) {
-                showAlert('Please select a station first', 'warning');
-                return;
-            }
-
-            const buildingId = selectedCard.dataset.buildingId;
-            const response = await fetch('/api/purchase', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    type: type,
-                    building_id: buildingId
-                })
-            });
-            
-            const data = await response.json();
-            if (response.ok) {
-                const modal = bootstrap.Modal.getInstance(document.querySelector('.modal'));
-                modal.hide();
-                updateGameState();
-                showAlert(`${type.replace('_', ' ').toUpperCase()} purchased successfully`, 'success');
-            } else {
-                showAlert(data.error || 'Failed to purchase vehicle', 'danger');
-            }
-        }
-
-        function selectBuilding(type) {
-            selectedBuilding = type;
-            map.getContainer().style.cursor = 'crosshair';
-            document.getElementById('placement-guide').classList.add('active');
-        }
-
-        // Add ESC key handler to cancel building placement
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && selectedBuilding) {
-                selectedBuilding = null;
-                map.getContainer().style.cursor = '';
-                document.getElementById('placement-guide').classList.remove('active');
-            }
-        });
-
-        async function updateGameState() {
-            const response = await fetch('/api/state');
-            const data = await response.json();
-            document.getElementById('budget').textContent = data.budget.toLocaleString();
-            
-            // Update buildings and vehicles on map
-            data.buildings.forEach(building => {
-                if (!buildings[building.id]) {
-                    const marker = L.marker([building.lat, building.lng]).addTo(map);
-                    const buildingId = building.id;
-                    buildings[buildingId] = marker;
-                    
-                    // Create popup with refund button
-                    const popupContent = `
-                        <div class="popup-content">
-                            <strong>${building.type.replace('_', ' ').toUpperCase()}</strong>
-                            <div class="vehicle-list" id="vehicles-${buildingId}">
-                                ${building.vehicles.map(vehicle => `
-                                    <div class="vehicle-item">
-                                        <span>${vehicle.type.replace('_', ' ').toUpperCase()}</span>
-                                        <button class="btn btn-sm btn-danger" onclick="refundItem(${vehicle.id}, 'vehicle')">
-                                            Sell
-                                        </button>
-                                    </div>
-                                `).join('') || 'No vehicles'}
-                            </div>
-                            <button class="btn btn-danger btn-sm refund-btn" onclick="refundItem(${buildingId}, 'building')">
-                                Sell Building (70% refund)
-                            </button>
-                        </div>`;
-                    
-                    marker.bindPopup(popupContent);
-                }
-            });
-
-            // Update missions
-            data.missions.forEach(mission => {
-                if (!missions[mission.id]) {
-                    const missionMarker = L.marker([mission.lat, mission.lng], {
-                        icon: L.divIcon({
-                            className: 'mission-icon',
-                            html: '🚨',
-                            iconSize: [25, 25]
-                        })
-                    }).addTo(map);
-                    missionMarkers[mission.id] = missionMarker;
-                    missions[mission.id] = mission;
-                }
-            });
-        }
-
-        function focusOnMission(missionId) {
-            const mission = missions[missionId];
-            if (mission) {
-                map.setView([mission.lat, mission.lng], 12);
-            }
-        }
-
-        async function refundItem(id, type) {
-            if (!confirm('Are you sure you want to sell this item? You will receive 70% of its original cost.')) {
-                return;
-            }
-
-            const response = await fetch('/api/refund', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    id: id,
-                    type: type
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (type === 'building') {
-                    const marker = buildings[id];
-                    if (marker) {
-                        map.removeLayer(marker);
-                        delete buildings[id];
-                    }
-                }
-                updateGameState();
-                showAlert(`Refunded $${data.refund_amount.toLocaleString()} AUD`);
-            }
-        }
-
-        map.on('click', async function(e) {
-            if (selectedBuilding) {
-                document.getElementById('placement-guide').classList.remove('active');
-                try {
-                    const response = await fetch('/api/purchase', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            type: selectedBuilding,
-                            lat: e.latlng.lat,
-                            lng: e.latlng.lng
-                        })
-                    });
-
-                    const data = await response.json();
-                    
-                    if (response.ok) {
-                        const marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
-                        const buildingId = data.building_id;
-                        buildings[buildingId] = marker;
-                        
-                        // Create popup with refund button
-                        const popupContent = `
-                            <div class="popup-content">
-                                <strong>${selectedBuilding.replace('_', ' ').toUpperCase()}</strong>
-                                <div class="vehicle-list" id="vehicles-${buildingId}">
-                                    No vehicles
-                                </div>
-                                <button class="btn btn-danger btn-sm refund-btn" onclick="refundItem(${buildingId}, 'building')">
-                                    Sell Building (70% refund)
-                                </button>
-                            </div>`;
-                        
-                        marker.bindPopup(popupContent);
-                        
-                        selectedBuilding = null;
-                        map.getContainer().style.cursor = '';
-                        await updateGameState();
-                        showAlert(`${data.type.replace('_', ' ').toUpperCase()} placed successfully!`, 'success');
-                    } else {
-                        showAlert(data.error || 'Failed to place building', 'danger');
-                    }
-                } catch (error) {
-                    showAlert('Error placing building: ' + error.message, 'danger');
-                }
-            }
-        });
-
-        function showAlert(message, type = 'info') {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-mission`;
-            alertDiv.innerHTML = message;
-            document.body.appendChild(alertDiv);
-            setTimeout(() => alertDiv.remove(), 3000);
-        }
-
-        socket.on('new_mission', function(mission) {
-            // Create mission marker
-            const missionMarker = L.marker([mission.lat, mission.lng], {
-                icon: L.divIcon({
-                    className: 'mission-icon',
-                    html: '🚨',
-                    iconSize: [25, 25]
-                })
-            }).addTo(map);
-            
-            missionMarkers[mission.id] = missionMarker;
-            missions[mission.id] = mission;
-
-            // Show alert
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-danger alert-mission';
-            alertDiv.innerHTML = `New ${mission.type.replace('_', ' ')}: ${mission.description}`;
-            document.body.appendChild(alertDiv);
-
-            // Remove alert after 5 seconds
-            setTimeout(() => alertDiv.remove(), 5000);
-            
-            // Update MDT
-            updateMDT();
-        });
-
-        socket.on('mission_updated', function(data) {
-            updateMDT();
-            if (data.status === 'assigned') {
-                showAlert('Mission assigned successfully', 'success');
-            } else if (data.status === 'completed') {
-                showAlert('Mission completed successfully', 'success');
-            }
-        });
-
-        async function confirmVehicleAssignment(missionId) {
-            const selectedCard = document.querySelector('.vehicle-card.selected');
-            if (!selectedCard) {
-                showAlert('Please select a vehicle first', 'warning');
-                return;
-            }
-
-            const vehicleId = selectedCard.dataset.vehicleId;
-            await assignMission(missionId, vehicleId);
-            
-            const modal = bootstrap.Modal.getInstance(document.querySelector('.modal'));
-            modal.hide();
-        }
-
-        // Initial state update
-        updateGameState();
-        updateMDT();
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/game.js"></script>
 </body>
 </html>
