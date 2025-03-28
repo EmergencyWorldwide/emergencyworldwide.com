@@ -1,379 +1,516 @@
 class UI {
     constructor() {
-        this.map = null;
-        this.buildings = new Map();
-        this.missionMarkers = new Map();
-        this.selectedBuilding = null;
-        this.isMDTMinimized = false;
-        this.setupMap();
-        this.setupEventListeners();
-    }
-
-    setupMap() {
-        this.map = L.map('map').setView(CONFIG.MAP.CENTER, CONFIG.MAP.ZOOM);
+        // Initialize map
+        this.map = L.map('map').setView([CONFIG.MAP.CENTER_LAT, CONFIG.MAP.CENTER_LNG], CONFIG.MAP.ZOOM);
         L.tileLayer(CONFIG.MAP.TILE_LAYER, {
             attribution: CONFIG.MAP.ATTRIBUTION
         }).addTo(this.map);
 
+        // Initialize collections
+        this.buildings = new Map();
+        this.missions = new Map();
+        this.isPlacingBuilding = false;
+
+        // Initialize modals
+        this.vehiclesModal = null;
+        this.mdtVisible = false;
+
+        // Set up map click handler
         this.map.on('click', (e) => {
-            if (this.selectedBuilding) {
-                this.placeBuildingAtLocation(e.latlng);
+            if (this.isPlacingBuilding) {
+                game.handleBuildingPlacement(e.latlng);
             }
         });
+
+        // Load existing buildings and missions
+        this.loadExistingBuildings();
+        this.loadExistingMissions();
     }
 
-    setupEventListeners() {
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.selectedBuilding) {
-                this.cancelBuildingPlacement();
+    loadExistingBuildings() {
+        for (const building of gameState.buildings.values()) {
+            this.addBuildingMarker(building);
+        }
+    }
+
+    loadExistingMissions() {
+        for (const mission of gameState.missions.values()) {
+            if (mission.status === 'active' || mission.status === 'assigned') {
+                this.showMission(mission);
             }
-        });
-    }
-
-    showAlert(message, type = 'info') {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        document.getElementById('alert-container').appendChild(alertDiv);
-        setTimeout(() => alertDiv.remove(), 5000);
+        }
     }
 
     updateBudget() {
-        document.getElementById('budget').textContent = gameState.budget.toLocaleString();
+        const budgetElement = document.getElementById('budget');
+        if (budgetElement) {
+            budgetElement.textContent = gameState.budget.toLocaleString();
+        }
+    }
+
+    showAlert(message, type = 'info', duration = 3000) {
+        const container = document.getElementById('alert-container');
+        if (!container) return;
+
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        container.appendChild(alert);
+
+        setTimeout(() => {
+            alert.classList.remove('show');
+            setTimeout(() => alert.remove(), 150);
+        }, duration);
+    }
+
+    showBuildingPurchase() {
+        this.isPlacingBuilding = true;
+        document.body.classList.add('cursor-crosshair');
+        this.showAlert('Click on the map to place a fire station', 'info');
+    }
+
+    handleBuildingPlacement(latlng) {
+        const building = gameState.addBuilding('FIRE_STATION', latlng.lat, latlng.lng);
+        if (building) {
+            this.addBuildingMarker(building);
+            this.updateBudget();
+            this.showAlert('Fire station placed successfully!', 'success');
+        } else {
+            this.showAlert('Cannot afford fire station!', 'danger');
+        }
+        
+        this.isPlacingBuilding = false;
+        document.body.classList.remove('cursor-crosshair');
+    }
+
+    addBuildingMarker(building) {
+        const marker = L.marker([building.lat, building.lng], {
+            icon: L.divIcon({
+                className: 'building-marker',
+                html: `<div class="building-icon" style="color: ${CONFIG.BUILDING_TYPES[building.type].color}">
+                    <i class="bi ${CONFIG.BUILDING_TYPES[building.type].icon}"></i>
+                </div>`
+            })
+        });
+
+        marker.bindPopup(this.createBuildingPopup(building));
+        marker.addTo(this.map);
+        this.buildings.set(building.id, marker);
+    }
+
+    createBuildingPopup(building) {
+        const buildingType = CONFIG.BUILDING_TYPES[building.type];
+        let vehicleList = '';
+
+        // Get vehicles at this building
+        const buildingVehicles = Array.from(building.vehicles)
+            .map(id => gameState.vehicles.get(id))
+            .filter(v => v); // Filter out any undefined vehicles
+
+        if (buildingVehicles.length > 0) {
+            vehicleList = buildingVehicles.map(vehicle => {
+                const vehicleType = CONFIG.VEHICLE_TYPES[vehicle.type];
+                const status = vehicle.assignedMissionId ? 
+                    '<span class="badge bg-warning">On Mission</span>' : 
+                    '<span class="badge bg-success">Available</span>';
+                
+                return `
+                    <div class="vehicle-card p-2 mb-2 ${vehicle.assignedMissionId ? 'assigned' : ''}"
+                         style="border-left: 4px solid ${vehicleType.color}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi ${vehicleType.icon}"></i>
+                                ${vehicleType.name}
+                            </div>
+                            <div>
+                                ${status}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            vehicleList = `
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle"></i>
+                    No vehicles stationed here
+                </div>
+            `;
+        }
+
+        const popup = L.popup({
+            className: 'building-popup',
+            maxWidth: 300,
+            minWidth: 200,
+        });
+
+        popup.setContent(`
+            <div class="p-3">
+                <h5 class="mb-3">
+                    <i class="bi ${buildingType.icon}"></i>
+                    ${buildingType.name}
+                </h5>
+                <div class="mb-3">
+                    <strong>Location:</strong><br>
+                    ${building.lat.toFixed(4)}, ${building.lng.toFixed(4)}
+                </div>
+                <div class="mb-3">
+                    <strong>Vehicles:</strong>
+                    ${vehicleList}
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-danger" onclick="game.removeBuilding('${building.id}')">
+                        <i class="bi bi-trash"></i> Remove
+                    </button>
+                </div>
+            </div>
+        `);
+
+        return popup;
+    }
+
+    showMission(mission) {
+        // Create or update mission marker
+        const marker = this.missions.get(mission.id) || L.marker([mission.lat, mission.lng], {
+            icon: L.divIcon({
+                className: 'mission-marker',
+                html: `<div class="mission-icon" style="color: ${CONFIG.MISSION_TYPES[mission.type].color}">
+                    <i class="bi ${CONFIG.MISSION_TYPES[mission.type].icon}"></i>
+                </div>`
+            })
+        });
+
+        // Update popup content
+        marker.bindPopup(this.createMissionPopup(mission));
+
+        // Add to map if new
+        if (!this.missions.has(mission.id)) {
+            marker.addTo(this.map);
+            this.missions.set(mission.id, marker);
+        }
+
+        // Update MDT
+        this.updateMDT();
+    }
+
+    createMissionPopup(mission) {
+        const missionType = CONFIG.MISSION_TYPES[mission.type];
+        const popup = L.popup({
+            className: 'mission-popup',
+            maxWidth: 300,
+            minWidth: 200,
+        });
+
+        let statusBadge = '';
+        switch (mission.status) {
+            case 'active':
+                statusBadge = '<span class="badge bg-danger">Active</span>';
+                break;
+            case 'assigned':
+                statusBadge = '<span class="badge bg-warning">In Progress</span>';
+                break;
+            case 'completed':
+                statusBadge = '<span class="badge bg-success">Completed</span>';
+                break;
+            case 'failed':
+                statusBadge = '<span class="badge bg-secondary">Failed</span>';
+                break;
+        }
+
+        popup.setContent(`
+            <div class="p-3">
+                <h5 class="mb-3">
+                    <i class="bi ${missionType.icon}"></i>
+                    ${missionType.name} Mission
+                    ${statusBadge}
+                </h5>
+                <div class="mb-3">
+                    ${mission.description}
+                </div>
+                <div class="mb-3">
+                    <strong>Location:</strong><br>
+                    ${mission.lat.toFixed(4)}, ${mission.lng.toFixed(4)}
+                </div>
+                <div class="mb-3">
+                    <strong>Reward:</strong> $${mission.reward.toLocaleString()}<br>
+                    <strong>Penalty:</strong> $${mission.failPenalty.toLocaleString()}
+                </div>
+                ${mission.status === 'active' ? `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Requires immediate response!
+                    </div>
+                ` : ''}
+            </div>
+        `);
+
+        return popup;
     }
 
     toggleMDT() {
         const mdt = document.getElementById('mdt');
-        const content = document.getElementById('mdt-content');
-        const button = mdt.querySelector('button i');
-        
-        this.isMDTMinimized = !this.isMDTMinimized;
-        content.style.display = this.isMDTMinimized ? 'none' : 'block';
-        button.className = this.isMDTMinimized ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+        if (!mdt) return;
+
+        this.mdtVisible = !this.mdtVisible;
+        mdt.style.display = this.mdtVisible ? 'block' : 'none';
+        this.updateMDT();
     }
 
     updateMDT() {
-        const mdt = document.getElementById('mdt-content');
-        mdt.innerHTML = '';
-        
-        const missions = Array.from(gameState.missions.values())
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        if (!this.mdtVisible) return;
 
-        missions.forEach(mission => {
-            const missionType = mission.type.replace('_', ' ').toUpperCase();
-            const card = document.createElement('div');
-            card.className = `card mission-card ${CONFIG.MISSION_TYPES[mission.type].color} mb-2`;
-            card.innerHTML = `
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <h6 class="card-title mb-1">${missionType}</h6>
-                            <p class="card-text small mb-1">${mission.description}</p>
-                            <div class="text-muted small">
-                                <i class="bi bi-geo-alt"></i> ${mission.lat.toFixed(4)}, ${mission.lng.toFixed(4)}
-                            </div>
-                        </div>
-                        <div class="text-end">
-                            ${mission.status === 'active' ? `
-                                <button class="btn btn-sm btn-primary" onclick="ui.showVehicleSelection('${mission.id}', '${mission.type}')">
-                                    <i class="bi bi-truck"></i> Assign Vehicle
-                                </button>
-                            ` : mission.status === 'assigned' ? `
-                                <button class="btn btn-sm btn-success" onclick="game.completeMission('${mission.id}')">
-                                    <i class="bi bi-check-lg"></i> Complete
-                                </button>
-                            ` : `
-                                <span class="badge bg-secondary">Completed</span>
-                            `}
-                        </div>
-                    </div>
+        const mdt = document.getElementById('missions');
+        if (!mdt) return;
+
+        mdt.innerHTML = '';
+
+        // Sort missions by status and time
+        const missions = Array.from(gameState.missions.values())
+            .filter(m => m.status === 'active' || m.status === 'assigned')
+            .sort((a, b) => {
+                if (a.status === 'active' && b.status !== 'active') return -1;
+                if (a.status !== 'active' && b.status === 'active') return 1;
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
+        if (missions.length === 0) {
+            mdt.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    No active missions
                 </div>
             `;
+            return;
+        }
+
+        for (const mission of missions) {
+            const missionType = CONFIG.MISSION_TYPES[mission.type];
+            const card = document.createElement('div');
+            card.className = `card mission-card mb-3 ${mission.status === 'active' ? 'border-danger' : 'border-warning'}`;
+            
+            let assignedVehicle = null;
+            if (mission.assignedVehicleId) {
+                assignedVehicle = gameState.vehicles.get(mission.assignedVehicleId);
+            }
+
+            card.innerHTML = `
+                <div class="card-body">
+                    <h6 class="card-title d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi ${missionType.icon}"></i>
+                            ${missionType.name}
+                        </span>
+                        <span class="badge ${mission.status === 'active' ? 'bg-danger' : 'bg-warning'}">
+                            ${mission.status === 'active' ? 'Active' : 'In Progress'}
+                        </span>
+                    </h6>
+                    <p class="card-text">
+                        ${mission.description}<br>
+                        <small class="text-muted">
+                            Location: ${mission.lat.toFixed(4)}, ${mission.lng.toFixed(4)}
+                        </small>
+                    </p>
+                    ${assignedVehicle ? `
+                        <div class="alert alert-info mb-0">
+                            <i class="bi ${CONFIG.VEHICLE_TYPES[assignedVehicle.type].icon}"></i>
+                            ${CONFIG.VEHICLE_TYPES[assignedVehicle.type].name} responding
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
             mdt.appendChild(card);
-        });
+        }
     }
 
-    showBuildingPurchase() {
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.innerHTML = `
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Select Building Type</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            ${CONFIG.BUILDING_TYPES.map(building => `
-                                <div class="col-12 mb-3">
-                                    <div class="card h-100">
-                                        <div class="card-body">
-                                            <h5 class="card-title">${building.name}</h5>
-                                            <p class="card-text">${building.description}</p>
-                                            <p class="card-text">
-                                                <small class="text-muted">
-                                                    Cost: $${building.cost.toLocaleString()}
-                                                </small>
-                                            </p>
-                                            <button class="btn btn-primary" onclick="ui.selectBuilding('${building.id}')">
-                                                Select
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        const bsModal = new bootstrap.Modal(modal);
-        bsModal.show();
-        modal.addEventListener('hidden.bs.modal', () => {
-            document.body.removeChild(modal);
-        });
-    }
-
-    selectBuilding(buildingType) {
-        const cost = CONFIG.PRICES.BUILDINGS[buildingType];
-        if (!gameState.canAfford(cost)) {
-            this.showAlert('Insufficient funds', 'danger');
+    showVehiclesPage() {
+        // Get the modal element
+        const modalEl = document.getElementById('vehiclesPageModal');
+        if (!modalEl) {
+            console.error('Vehicles modal not found');
             return;
         }
 
-        this.selectedBuilding = buildingType;
-        bootstrap.Modal.getInstance(document.querySelector('.modal')).hide();
-        this.showAlert('Click on the map to place the building', 'info');
-    }
+        // Update purchase tab
+        const purchaseList = document.getElementById('vehiclePurchaseList');
+        if (purchaseList) {
+            purchaseList.innerHTML = '';
 
-    async placeBuildingAtLocation(latlng) {
-        if (!this.selectedBuilding) return;
-
-        const cost = CONFIG.PRICES.BUILDINGS[this.selectedBuilding];
-        if (!gameState.canAfford(cost)) {
-            this.showAlert('Insufficient funds', 'danger');
-            return;
-        }
-
-        const building = gameState.addBuilding(this.selectedBuilding, latlng.lat, latlng.lng);
-        gameState.purchase(cost);
-        
-        const marker = L.marker([latlng.lat, latlng.lng]).addTo(this.map);
-        this.buildings.set(building.id, marker);
-        
-        this.updateBuildingMarker(building);
-        this.updateBudget();
-        this.cancelBuildingPlacement();
-        this.showAlert('Building placed successfully', 'success');
-    }
-
-    cancelBuildingPlacement() {
-        this.selectedBuilding = null;
-        document.body.style.cursor = 'default';
-    }
-
-    updateBuildingMarker(building) {
-        const marker = this.buildings.get(building.id);
-        if (!marker) return;
-
-        const vehicles = Array.from(building.vehicles)
-            .map(id => gameState.vehicles.get(id))
-            .filter(v => v);
-
-        const popupContent = `
-            <div class="popup-content">
-                <strong>${building.type.replace('_', ' ').toUpperCase()}</strong>
-                <div class="vehicle-list">
-                    ${vehicles.length ? vehicles.map(vehicle => `
-                        <div class="vehicle-item">
-                            <span>${vehicle.type.replace('_', ' ').toUpperCase()}</span>
-                            <button class="btn btn-sm btn-danger" onclick="game.removeVehicle('${vehicle.id}')">
-                                Sell
-                            </button>
-                        </div>
-                    `).join('') : 'No vehicles'}
-                </div>
-                <button class="btn btn-danger btn-sm mt-2" onclick="game.removeBuilding('${building.id}')">
-                    Sell Building (70% refund)
-                </button>
-            </div>
-        `;
-
-        marker.bindPopup(popupContent);
-    }
-
-    showVehicleSelection(missionId, missionType) {
-        const modal = document.createElement('div');
-        modal.className = 'modal vehicle-select-modal';
-        modal.innerHTML = `
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Select Vehicle for ${missionType.replace('_', ' ').toUpperCase()}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            Select a vehicle capable of handling this type of mission.
-                        </div>
-                        <div id="vehicle-list">
-                            <div class="text-center">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                <p class="mt-2">Loading vehicles...</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" onclick="ui.confirmVehicleAssignment('${missionId}')" disabled id="confirm-assignment">
-                            Assign Vehicle
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        const bsModal = new bootstrap.Modal(modal);
-        bsModal.show();
-
-        this.loadVehiclesForMission(missionId, missionType);
-
-        modal.addEventListener('hidden.bs.modal', () => {
-            document.body.removeChild(modal);
-        });
-    }
-
-    async loadVehiclesForMission(missionId, missionType) {
-        const vehicleList = document.getElementById('vehicle-list');
-        let hasVehicles = false;
-        let vehicleHtml = '';
-
-        try {
-            for (const [buildingId, building] of gameState.buildings) {
-                const vehicles = Array.from(building.vehicles)
-                    .map(id => gameState.vehicles.get(id))
-                    .filter(v => v);
-
-                if (vehicles.length > 0) {
-                    hasVehicles = true;
-                    vehicleHtml += `
-                        <div class="building-section mb-3">
-                            <h6 class="mb-2">
-                                <i class="bi bi-building"></i> ${building.type.replace('_', ' ').toUpperCase()}
-                            </h6>
-                            <div class="vehicles-container">
-                                ${vehicles.map(vehicle => `
-                                    <div class="vehicle-card ${vehicle.assignedMissionId ? 'assigned' : ''}" 
-                                         data-vehicle-id="${vehicle.id}" 
-                                         onclick="ui.selectVehicle(this, '${missionType}')"
-                                         data-capabilities='${JSON.stringify(CONFIG.VEHICLE_TYPES[vehicle.type])}'>
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <strong>${vehicle.type.replace('_', ' ').toUpperCase()}</strong>
-                                                <span class="status ${vehicle.assignedMissionId ? 'assigned' : 'available'}">
-                                                    ${vehicle.assignedMissionId ? 'On Mission' : 'Available'}
-                                                </span>
-                                                <div class="text-muted small">ID: ${vehicle.id}</div>
-                                                <div class="capabilities">
-                                                    <i class="bi bi-gear"></i> Can handle: ${CONFIG.VEHICLE_TYPES[vehicle.type].map(c => c.replace('_', ' ')).join(', ')}
-                                                </div>
-                                                ${vehicle.assignedMissionId ? `
-                                                    <div class="mission-info">
-                                                        <i class="bi bi-exclamation-triangle"></i>
-                                                        Assigned to Mission #${vehicle.assignedMissionId}
-                                                    </div>
-                                                ` : ''}
-                                            </div>
-                                            <i class="bi bi-truck"></i>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>`;
+            // Group vehicles by building
+            const buildingGroups = new Map();
+            for (const building of gameState.buildings.values()) {
+                const buildingType = CONFIG.BUILDING_TYPES[building.type];
+                if (buildingType && buildingType.allowedVehicles) {
+                    for (const vehicleType of buildingType.allowedVehicles) {
+                        if (!buildingGroups.has(vehicleType)) {
+                            buildingGroups.set(vehicleType, new Set());
+                        }
+                        buildingGroups.get(vehicleType).add(building);
+                    }
                 }
             }
 
-            vehicleList.innerHTML = hasVehicles ? vehicleHtml : `
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    No vehicles available. Purchase vehicles from the control panel.
-                </div>`;
-        } catch (error) {
-            vehicleList.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    Error loading vehicles: ${error.message}
-                </div>`;
-        }
-    }
+            // Create purchase cards for each vehicle type
+            for (const [type, vehicle] of Object.entries(CONFIG.VEHICLE_TYPES)) {
+                const buildings = buildingGroups.get(type);
+                if (!buildings || buildings.size === 0) {
+                    // Skip if no buildings can house this vehicle
+                    continue;
+                }
 
-    selectVehicle(card, missionType) {
-        if (card.classList.contains('assigned')) {
-            this.showAlert('This vehicle is already assigned to a mission', 'warning');
-            return;
-        }
+                const cost = CONFIG.PRICES.VEHICLES[type];
+                const canAfford = gameState.canAfford(cost);
 
-        const capabilities = JSON.parse(card.dataset.capabilities);
-        if (!capabilities.includes(missionType)) {
-            this.showAlert(`This vehicle cannot handle ${missionType.replace('_', ' ')} missions`, 'warning');
-            return;
-        }
+                const card = document.createElement('div');
+                card.className = 'col-md-6 col-lg-4';
+                card.innerHTML = `
+                    <div class="card h-100 ${canAfford ? '' : 'opacity-50'}" 
+                         style="border-left: 4px solid ${vehicle.color}">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi ${vehicle.icon}"></i> 
+                                ${vehicle.name}
+                            </h5>
+                            <div class="card-text">
+                                <div class="mb-2">
+                                    <strong>Cost:</strong> $${cost.toLocaleString()}
+                                    ${canAfford ? 
+                                        '<span class="badge bg-success ms-2">Available</span>' : 
+                                        '<span class="badge bg-danger ms-2">Cannot afford</span>'
+                                    }
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Missions:</strong><br>
+                                    ${vehicle.missionTypes.map(type => {
+                                        const mission = CONFIG.MISSION_TYPES[type];
+                                        return `
+                                            <span class="badge" style="background-color: ${mission.color}">
+                                                <i class="bi ${mission.icon}"></i> 
+                                                ${mission.name}
+                                            </span>
+                                        `;
+                                    }).join(' ')}
+                                </div>
+                                ${canAfford ? `
+                                    <div class="form-group">
+                                        <label class="form-label">Station:</label>
+                                        <select class="form-select form-select-sm" 
+                                                onchange="if(this.value) game.purchaseVehicle('${type}', this.value)">
+                                            <option value="">Select station...</option>
+                                            ${Array.from(buildings).map(building => `
+                                                <option value="${building.id}">
+                                                    Fire Station at (${building.lat.toFixed(4)}, ${building.lng.toFixed(4)})
+                                                </option>
+                                            `).join('')}
+                                        </select>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                purchaseList.appendChild(card);
+            }
 
-        document.querySelectorAll('.vehicle-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        document.getElementById('confirm-assignment').disabled = false;
-    }
-
-    async confirmVehicleAssignment(missionId) {
-        const selectedCard = document.querySelector('.vehicle-card.selected');
-        if (!selectedCard) {
-            this.showAlert('Please select a vehicle first', 'warning');
-            return;
-        }
-
-        const vehicleId = selectedCard.dataset.vehicleId;
-        if (game.assignVehicleToMission(vehicleId, missionId)) {
-            this.showAlert('Vehicle assigned successfully', 'success');
-            bootstrap.Modal.getInstance(document.querySelector('.modal')).hide();
-            this.updateMDT();
-        } else {
-            this.showAlert('Failed to assign vehicle', 'danger');
-        }
-    }
-
-    updateMissionMarkers() {
-        // Remove completed mission markers
-        for (const [id, marker] of this.missionMarkers) {
-            const mission = gameState.missions.get(id);
-            if (!mission || mission.status === 'completed') {
-                marker.remove();
-                this.missionMarkers.delete(id);
+            // Show message if no vehicles available
+            if (purchaseList.children.length === 0) {
+                purchaseList.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            No vehicles available. Build a fire station first!
+                        </div>
+                    </div>
+                `;
             }
         }
 
-        // Add/update active mission markers
-        for (const mission of gameState.missions.values()) {
-            if (mission.status === 'completed') continue;
+        // Update fleet tab
+        const fleetList = document.getElementById('fleetList');
+        if (fleetList) {
+            fleetList.innerHTML = '';
 
-            if (!this.missionMarkers.has(mission.id)) {
-                const marker = L.marker([mission.lat, mission.lng], {
-                    icon: L.divIcon({
-                        className: 'mission-icon',
-                        html: '🚨',
-                        iconSize: [25, 25]
-                    })
-                }).addTo(this.map);
-                this.missionMarkers.set(mission.id, marker);
+            // Group vehicles by building
+            const buildingVehicles = new Map();
+            for (const vehicle of gameState.vehicles.values()) {
+                if (!buildingVehicles.has(vehicle.buildingId)) {
+                    buildingVehicles.set(vehicle.buildingId, []);
+                }
+                buildingVehicles.get(vehicle.buildingId).push(vehicle);
+            }
+
+            // Create fleet list
+            if (buildingVehicles.size === 0) {
+                fleetList.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> 
+                        No vehicles in your fleet yet. Purchase vehicles from the Purchase tab.
+                    </div>
+                `;
+            } else {
+                for (const [buildingId, vehicles] of buildingVehicles) {
+                    const building = gameState.buildings.get(buildingId);
+                    if (!building) continue;
+
+                    const buildingCard = document.createElement('div');
+                    buildingCard.className = 'card mb-3';
+                    buildingCard.innerHTML = `
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="bi bi-building"></i> 
+                                Fire Station at (${building.lat.toFixed(4)}, ${building.lng.toFixed(4)})
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                ${vehicles.map(vehicle => {
+                                    const vehicleType = CONFIG.VEHICLE_TYPES[vehicle.type];
+                                    return `
+                                        <div class="col-md-6">
+                                            <div class="vehicle-item p-2 rounded" 
+                                                 style="border-left: 4px solid ${vehicleType.color}">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div>
+                                                        <i class="bi ${vehicleType.icon}"></i>
+                                                        ${vehicleType.name}
+                                                    </div>
+                                                    ${!vehicle.assignedMissionId ? `
+                                                        <button class="btn btn-sm btn-outline-danger" 
+                                                                onclick="game.removeVehicle('${vehicle.id}')">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    ` : ''}
+                                                </div>
+                                                ${vehicle.assignedMissionId ? `
+                                                    <div class="text-warning">
+                                                        <i class="bi bi-exclamation-triangle"></i>
+                                                        On mission: ${vehicle.assignedMissionId}
+                                                    </div>
+                                                ` : `
+                                                    <div class="text-success">
+                                                        <i class="bi bi-check-circle"></i>
+                                                        Available
+                                                    </div>
+                                                `}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                    fleetList.appendChild(buildingCard);
+                }
             }
         }
+
+        // Show the modal using Bootstrap 5.3 Modal
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
     }
 }
 

@@ -1,75 +1,120 @@
 class GameState {
     constructor() {
-        this.budget = CONFIG.GAME.INITIAL_BUDGET;
+        this.budget = CONFIG.INITIAL_BUDGET;
         this.buildings = new Map();
         this.vehicles = new Map();
         this.missions = new Map();
-        this.nextId = 1;
+        this.nextBuildingId = 1;
+        this.nextVehicleId = 1;
+        this.nextMissionId = 1;
     }
 
-    generateId(prefix) {
-        return `${prefix}_${this.nextId++}`;
+    canAfford(cost) {
+        return this.budget >= cost;
     }
 
     addBuilding(type, lat, lng) {
-        const id = this.generateId('b');
+        const cost = CONFIG.PRICES.BUILDINGS[type];
+        if (!this.canAfford(cost)) {
+            return null;
+        }
+
         const building = {
-            id,
+            id: `b${this.nextBuildingId++}`,
             type,
             lat,
             lng,
             vehicles: new Set()
         };
-        this.buildings.set(id, building);
+
+        this.buildings.set(building.id, building);
+        this.budget -= cost;
         return building;
+    }
+
+    removeBuilding(id) {
+        const building = this.buildings.get(id);
+        if (!building) return false;
+
+        // Remove all vehicles from this building
+        for (const vehicleId of building.vehicles) {
+            this.removeVehicle(vehicleId);
+        }
+
+        this.buildings.delete(id);
+        return true;
     }
 
     addVehicle(type, buildingId) {
         const building = this.buildings.get(buildingId);
         if (!building) return null;
 
-        const id = this.generateId('v');
+        const cost = CONFIG.PRICES.VEHICLES[type];
+        if (!this.canAfford(cost)) return null;
+
         const vehicle = {
-            id,
+            id: `v${this.nextVehicleId++}`,
             type,
             buildingId,
-            assignedMissionId: null
+            assignedMissionId: null,
+            lat: building.lat,
+            lng: building.lng
         };
-        this.vehicles.set(id, vehicle);
-        building.vehicles.add(id);
+
+        this.vehicles.set(vehicle.id, vehicle);
+        building.vehicles.add(vehicle.id);
+        this.budget -= cost;
         return vehicle;
     }
 
+    removeVehicle(id) {
+        const vehicle = this.vehicles.get(id);
+        if (!vehicle || vehicle.assignedMissionId) return false;
+
+        const building = this.buildings.get(vehicle.buildingId);
+        if (building) {
+            building.vehicles.delete(vehicle.id);
+        }
+
+        this.vehicles.delete(id);
+        return true;
+    }
+
     addMission(type, lat, lng) {
-        const id = this.generateId('m');
+        const missionType = CONFIG.MISSION_TYPES[type];
+        if (!missionType) return null;
+
         const mission = {
-            id,
+            id: `m${this.nextMissionId++}`,
             type,
             lat,
             lng,
             status: 'active',
-            description: CONFIG.MISSION_TYPES[type].description,
-            createdAt: new Date(),
-            assignedVehicleId: null,
-            assignedAt: null,
-            completedAt: null
+            description: this.generateMissionDescription(type),
+            reward: this.calculateMissionReward(type),
+            failPenalty: this.calculateMissionPenalty(type),
+            createdAt: new Date().toISOString(),
+            assignedVehicleId: null
         };
-        this.missions.set(id, mission);
+
+        this.missions.set(mission.id, mission);
         return mission;
     }
 
     assignVehicleToMission(vehicleId, missionId) {
         const vehicle = this.vehicles.get(vehicleId);
         const mission = this.missions.get(missionId);
-        
+
         if (!vehicle || !mission) return false;
         if (vehicle.assignedMissionId || mission.assignedVehicleId) return false;
-        if (!CONFIG.VEHICLE_TYPES[vehicle.type].includes(mission.type)) return false;
+        if (mission.status !== 'active') return false;
 
-        vehicle.assignedMissionId = missionId;
-        mission.assignedVehicleId = vehicleId;
+        const vehicleType = CONFIG.VEHICLE_TYPES[vehicle.type];
+        if (!vehicleType.missionTypes.includes(mission.type)) return false;
+
+        vehicle.assignedMissionId = mission.id;
+        mission.assignedVehicleId = vehicle.id;
         mission.status = 'assigned';
-        mission.assignedAt = new Date();
         return true;
     }
 
@@ -78,102 +123,57 @@ class GameState {
         if (!mission || mission.status !== 'assigned') return false;
 
         const vehicle = this.vehicles.get(mission.assignedVehicleId);
-        if (vehicle) {
-            vehicle.assignedMissionId = null;
-        }
+        if (!vehicle) return false;
 
+        // Clear assignments
+        vehicle.assignedMissionId = null;
         mission.status = 'completed';
-        mission.completedAt = new Date();
+
+        // Add reward
+        this.budget += mission.reward;
+
         return true;
     }
 
-    canAfford(cost) {
-        return this.budget >= cost;
-    }
+    failMission(missionId) {
+        const mission = this.missions.get(missionId);
+        if (!mission || mission.status !== 'active') return false;
 
-    purchase(cost) {
-        if (!this.canAfford(cost)) return false;
-        this.budget -= cost;
+        mission.status = 'failed';
+        this.budget -= mission.failPenalty;
         return true;
     }
 
-    refund(cost) {
-        this.budget += Math.floor(cost * 0.7); // 70% refund
-    }
-
-    removeBuilding(buildingId) {
-        const building = this.buildings.get(buildingId);
-        if (!building) return false;
-
-        // Refund vehicles first
-        for (const vehicleId of building.vehicles) {
-            const vehicle = this.vehicles.get(vehicleId);
-            if (vehicle) {
-                this.refund(CONFIG.PRICES.VEHICLES[vehicle.type]);
-                this.vehicles.delete(vehicleId);
-            }
-        }
-
-        // Refund building
-        this.refund(CONFIG.PRICES.BUILDINGS[building.type]);
-        this.buildings.delete(buildingId);
-        return true;
-    }
-
-    removeVehicle(vehicleId) {
-        const vehicle = this.vehicles.get(vehicleId);
-        if (!vehicle || vehicle.assignedMissionId) return false;
-
-        const building = this.buildings.get(vehicle.buildingId);
-        if (building) {
-            building.vehicles.delete(vehicleId);
-        }
-
-        this.refund(CONFIG.PRICES.VEHICLES[vehicle.type]);
-        this.vehicles.delete(vehicleId);
-        return true;
-    }
-
-    save() {
-        const data = {
-            budget: this.budget,
-            nextId: this.nextId,
-            buildings: Array.from(this.buildings.entries()),
-            vehicles: Array.from(this.vehicles.entries()),
-            missions: Array.from(this.missions.entries())
+    generateMissionDescription(type) {
+        const descriptions = {
+            FIRE: [
+                'Building fire reported! Immediate response required.',
+                'Fire emergency at residential complex.',
+                'Commercial building ablaze, multiple floors affected.',
+                'Forest fire spreading rapidly, containment needed.',
+                'Industrial facility fire with hazardous materials.'
+            ],
+            MEDICAL: [
+                'Medical emergency requiring immediate attention.',
+                'Multiple casualties reported at accident scene.',
+                'Critical patient needs urgent transport.',
+                'Mass casualty incident at public event.',
+                'Emergency medical response needed at workplace.'
+            ]
         };
-        localStorage.setItem('gameState', JSON.stringify(data));
+
+        const options = descriptions[type] || ['Emergency response required.'];
+        return options[Math.floor(Math.random() * options.length)];
     }
 
-    load() {
-        const data = localStorage.getItem('gameState');
-        if (!data) return false;
+    calculateMissionReward(type) {
+        const baseReward = CONFIG.MISSION_TYPES[type].baseReward || 5000;
+        return Math.floor(baseReward * (0.8 + Math.random() * 0.4));
+    }
 
-        try {
-            const parsed = JSON.parse(data);
-            this.budget = parsed.budget;
-            this.nextId = parsed.nextId;
-            this.buildings = new Map(parsed.buildings);
-            this.vehicles = new Map(parsed.vehicles);
-            this.missions = new Map(parsed.missions);
-
-            // Convert dates from strings back to Date objects
-            for (const mission of this.missions.values()) {
-                mission.createdAt = new Date(mission.createdAt);
-                if (mission.assignedAt) mission.assignedAt = new Date(mission.assignedAt);
-                if (mission.completedAt) mission.completedAt = new Date(mission.completedAt);
-            }
-
-            // Restore Set objects for building vehicles
-            for (const building of this.buildings.values()) {
-                building.vehicles = new Set(building.vehicles);
-            }
-
-            return true;
-        } catch (error) {
-            console.error('Error loading game state:', error);
-            return false;
-        }
+    calculateMissionPenalty(type) {
+        const basePenalty = CONFIG.MISSION_TYPES[type].basePenalty || 2500;
+        return Math.floor(basePenalty * (0.8 + Math.random() * 0.4));
     }
 }
 
