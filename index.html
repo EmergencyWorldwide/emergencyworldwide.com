@@ -3,255 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fire Chief Simulator</title>
-    
-    <!-- Load CSS dependencies -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    
+    <title>Aussie Fire Chief Simulator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-
         #map {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 1;
+            height: 80vh;
+            width: 100%;
         }
-
-        #controls {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            z-index: 1000;
-            background: white;
-            padding: 10px;
+        .control-panel {
+            padding: 15px;
+            background-color: #f8f9fa;
             border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        #mdt {
-            position: fixed;
-            bottom: 0;
-            right: 20px;
-            width: 350px;
-            background: white;
-            border-radius: 5px 5px 0 0;
-            box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
-            z-index: 1000;
-            display: none;
-        }
-
-        #mdt-header {
-            padding: 10px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            border-radius: 5px 5px 0 0;
-            cursor: pointer;
-        }
-
-        #mdt-content {
-            padding: 10px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .budget-display {
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
-
-        #alert-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 300px;
-        }
-
-        .building-marker {
-            cursor: pointer !important;
-        }
-
-        .building-icon {
-            font-size: 24px;
-            text-align: center;
-            line-height: 32px;
-            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));
-            transition: transform 0.2s;
-        }
-
-        .building-marker:hover .building-icon {
-            transform: scale(1.2);
-        }
-
-        .building-popup .leaflet-popup-content {
-            margin: 0;
-            min-width: 250px;
-        }
-
-        .building-popup .leaflet-popup-content-wrapper {
-            padding: 0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .vehicle-item {
-            background: #f8f9fa;
-            transition: all 0.2s;
-        }
-
-        .vehicle-item:hover {
-            background: #e9ecef;
-        }
-
-        .cursor-crosshair {
-            cursor: crosshair !important;
-        }
-
-        .leaflet-container {
-            font: inherit;
-        }
-
-        #budget {
-            font-weight: bold;
-            color: green;
-        }
-
-        .mission-card {
-            margin-bottom: 10px;
-        }
-
-        .mission-card.danger {
-            border-left: 4px solid #dc3545;
-        }
-
-        .mission-card.warning {
-            border-left: 4px solid #ffc107;
-        }
-
-        .vehicle-card {
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            padding: 10px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .vehicle-card:hover {
-            background: #f8f9fa;
-            border-color: #0d6efd;
-        }
-
-        .vehicle-card.selected {
-            border-color: #0d6efd;
-            background: #e7f1ff;
-        }
-
-        .vehicle-card.assigned {
-            opacity: 0.6;
-            cursor: not-allowed;
+            margin-bottom: 15px;
         }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    
-    <div id="controls" class="d-flex flex-column gap-2">
-        <div class="budget-display">
-            Budget: $<span id="budget">0</span>
-        </div>
-        <button id="addBuilding" class="btn btn-primary" onclick="game.showBuildingPurchase()">
-            <i class="bi bi-building"></i> Add Building
-        </button>
-        <button id="showVehicles" class="btn btn-success" onclick="game.showVehiclesPage()">
-            <i class="bi bi-truck"></i> Vehicles
-        </button>
-        <button id="toggleMDT" class="btn btn-secondary" onclick="game.ui.toggleMDT()">
-            <i class="bi bi-list-task"></i> Toggle MDT
-        </button>
-    </div>
-
-    <div id="mdt">
-        <div id="mdt-header" onclick="game.ui.toggleMDT()">
-            <i class="bi bi-list-task"></i> Mobile Data Terminal
-            <i class="bi bi-chevron-down float-end"></i>
-        </div>
-        <div id="mdt-content"></div>
-    </div>
-
-    <div id="alert-container"></div>
-
-    <!-- Vehicles Page Modal -->
-    <div class="modal fade" id="vehiclesPageModal" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-truck"></i> Vehicle Management
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <ul class="nav nav-tabs mb-3" id="vehiclesTabs">
-                        <li class="nav-item">
-                            <a class="nav-link active" data-bs-toggle="tab" href="#purchaseTab">
-                                <i class="bi bi-cart"></i> Purchase
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#fleetTab">
-                                <i class="bi bi-list-check"></i> Fleet
-                            </a>
-                        </li>
-                    </ul>
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="purchaseTab">
-                            <div class="row g-3" id="vehiclePurchaseList">
-                                <!-- Vehicle purchase cards will be added here -->
-                            </div>
-                        </div>
-                        <div class="tab-pane fade" id="fleetTab">
-                            <div id="fleetList">
-                                <!-- Fleet list will be added here -->
-                            </div>
-                        </div>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-9">
+                <div id="map"></div>
+            </div>
+            <div class="col-md-3">
+                <div class="control-panel">
+                    <h3>Budget: $<span id="budget">0</span></h3>
+                    <hr>
+                    <h4>Build</h4>
+                    <div class="mb-3">
+                        <button class="btn btn-primary" onclick="setPlacementMode('fire_station')">Fire Station ($500,000)</button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <hr>
+                    <h4>Vehicles</h4>
+                    <div class="mb-3">
+                        <button class="btn btn-success" onclick="purchaseVehicle('fire_truck')">Fire Truck ($200,000)</button>
+                    </div>
+                    <hr>
+                    <h4>Active Missions</h4>
+                    <div id="missions-list" class="list-group">
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Load dependencies first -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-
-    <!-- Load game scripts in correct order -->
-    <script src="js/config.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/game.js"></script>
-
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialize game after all scripts are loaded
-        window.addEventListener('DOMContentLoaded', () => {
-            window.gameState = new GameState();
-            window.game = new Game();
-            game.ui.updateBudget();
-            game.ui.updateMDT();
+        let map;
+        let placementMode = null;
+        let buildings = [];
+        let missions = [];
+
+        // Initialize map centered on Australia
+        map = L.map('map').setView([-25.2744, 133.7751], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Load initial game state
+        async function loadGameState() {
+            const response = await fetch('/api/state');
+            const data = await response.json();
+            document.getElementById('budget').textContent = data.budget.toLocaleString();
+        }
+
+        // Load buildings
+        async function loadBuildings() {
+            const response = await fetch('/api/buildings');
+            buildings = await response.json();
+            buildings.forEach(building => {
+                L.marker([building.lat, building.lon])
+                    .bindPopup(`${building.type.replace('_', ' ').toUpperCase()}`)
+                    .addTo(map);
+            });
+        }
+
+        // Set placement mode
+        function setPlacementMode(mode) {
+            placementMode = mode;
+            map.getContainer().style.cursor = 'crosshair';
+        }
+
+        // Handle map clicks for building placement
+        map.on('click', async function(e) {
+            if (!placementMode) return;
+
+            const response = await fetch('/api/buildings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: placementMode,
+                    lat: e.latlng.lat,
+                    lon: e.latlng.lng,
+                    cost: placementMode === 'fire_station' ? 500000 : 0
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                L.marker([e.latlng.lat, e.latlng.lng])
+                    .bindPopup(placementMode.replace('_', ' ').toUpperCase())
+                    .addTo(map);
+                loadGameState();
+            } else {
+                alert('Insufficient funds!');
+            }
+
+            placementMode = null;
+            map.getContainer().style.cursor = '';
         });
+
+        // Purchase vehicle
+        async function purchaseVehicle(type) {
+            if (buildings.length === 0) {
+                alert('Build a fire station first!');
+                return;
+            }
+
+            const response = await fetch('/api/vehicles', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: type,
+                    building_id: buildings[0].id,
+                    cost: 200000
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                loadGameState();
+            } else {
+                alert('Insufficient funds!');
+            }
+        }
+
+        // Update missions
+        async function updateMissions() {
+            const response = await fetch('/api/missions');
+            const newMissions = await response.json();
+            
+            // Remove old mission markers
+            missions.forEach(mission => {
+                if (mission.marker) {
+                    mission.marker.remove();
+                }
+            });
+
+            missions = newMissions;
+            const missionsList = document.getElementById('missions-list');
+            missionsList.innerHTML = '';
+
+            missions.forEach(mission => {
+                // Add marker
+                const icon = L.divIcon({
+                    className: 'mission-icon',
+                    html: '🔥',
+                    iconSize: [25, 25]
+                });
+                mission.marker = L.marker([mission.lat, mission.lon], {icon: icon}).addTo(map);
+
+                // Add to list
+                const item = document.createElement('div');
+                item.className = 'list-group-item';
+                item.textContent = `Fire at ${mission.lat.toFixed(4)}, ${mission.lon.toFixed(4)}`;
+                missionsList.appendChild(item);
+            });
+        }
+
+        // Initialize
+        loadGameState();
+        loadBuildings();
+        setInterval(updateMissions, 5000);
     </script>
 </body>
 </html>
