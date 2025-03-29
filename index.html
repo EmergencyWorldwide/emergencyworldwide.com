@@ -15,25 +15,68 @@
                 <div id="map"></div>
             </div>
             <div class="col-md-3">
-                <div class="sidebar">
+                <div class="dashboard">
                     <h2>Aussie Fire Chief</h2>
-                    <div class="stats">
-                        <p>Budget: $<span id="budget">1000000</span></p>
-                        <p>Active Missions: <span id="activeMissions">0</span></p>
+                    <div class="budget-panel">
+                        <h4>Budget: $<span id="budget">1000000</span></h4>
+                        <div class="text-success mb-2">Rewards: $<span id="rewards">0</span> total</div>
                     </div>
-                    <div class="building-menu">
-                        <h3>Purchase Buildings</h3>
-                        <button class="btn btn-primary mb-2" onclick="selectBuilding('fireStation')">Fire Station ($500,000)</button>
-                        <button class="btn btn-primary mb-2" onclick="selectBuilding('ambulanceStation')">Ambulance Station ($300,000)</button>
+                    <div class="control-panel mb-3">
+                        <button class="btn btn-warning" onclick="unselectItem()">Unselect</button>
+                        <button class="btn btn-danger" onclick="toggleRefundMode()">Refund Mode</button>
                     </div>
-                    <div class="vehicle-menu">
-                        <h3>Purchase Vehicles</h3>
-                        <button class="btn btn-success mb-2" onclick="selectVehicle('fireTruck')">Fire Truck ($200,000)</button>
-                        <button class="btn btn-success mb-2" onclick="selectVehicle('ambulance')">Ambulance ($100,000)</button>
+                    <div class="building-panel">
+                        <h4>Buildings</h4>
+                        <button class="btn btn-primary mb-2" onclick="selectBuilding('firestation')">Fire Station ($200,000)</button>
+                        <button class="btn btn-primary mb-2" onclick="selectBuilding('hospital')">Hospital ($500,000)</button>
+                        <button class="btn btn-primary mb-2" onclick="selectBuilding('training')">Training Ground ($150,000)</button>
                     </div>
-                    <div class="mission-log">
-                        <h3>Mission Log</h3>
-                        <div id="missionList" class="list-group"></div>
+                    <div class="vehicle-panel">
+                        <h4>Vehicles</h4>
+                        <button class="btn btn-success mb-2" onclick="selectVehicle('firetruck')">Fire Truck ($100,000)</button>
+                        <button class="btn btn-success mb-2" onclick="selectVehicle('heavypumper')">TFS Heavy Pumper ($150,000)</button>
+                        <button class="btn btn-success mb-2" onclick="selectVehicle('ambulance')">Ambulance ($80,000)</button>
+                    </div>
+                    <div class="mission-panel">
+                        <h4>Active Missions</h4>
+                        <div id="missions-list"></div>
+                    </div>
+                    <div class="details-panel mt-3">
+                        <h4>Details</h4>
+                        <div id="details-content" class="p-2 border rounded bg-light">
+                            Click on a building or vehicle to view details
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal fade" id="detailsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalTitle">Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detailsModalBody">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignment Modal -->
+    <div class="modal fade" id="assignmentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Assign Vehicle to Station</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Select a station to assign this vehicle to:</p>
+                    <div id="stationList" class="list-group">
                     </div>
                 </div>
             </div>
@@ -42,6 +85,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="script.js"></script>
+    <script src="game.js"></script>
 </body>
 </html>
