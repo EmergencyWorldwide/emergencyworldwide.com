@@ -1,0 +1,579 @@
+/* Modern Game UI Styles */
+:root {
+    --primary-color: #e63946;
+    --secondary-color: #457b9d;
+    --accent-color: #fca311;
+    --background-color: #f1faee;
+    --dark-color: #1d3557;
+    --success-color: #2a9d8f;
+    --warning-color: #e9c46a;
+    --danger-color: #e76f51;
+    --text-color: #293241;
+    --border-radius: 10px;
+    --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text-color);
+}
+
+#map {
+    flex: 1;
+    height: 100vh;
+    z-index: 1;
+}
+
+#sidebar {
+    width: 340px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 20px;
+    background-color: var(--background-color);
+    border-left: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Scrollbar Styling */
+#sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+    background-color: var(--secondary-color);
+    border-radius: 4px;
+}
+
+/* Header Styles */
+.game-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
+    box-shadow: var(--box-shadow);
+}
+
+/* Stats Section */
+.stats-section {
+    background: white;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
+    box-shadow: var(--box-shadow);
+}
+
+.stats-overlay, .weather-overlay {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+/* Mission Items */
+.mission-item {
+    background: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: var(--border-radius);
+    border: none;
+    box-shadow: var(--box-shadow);
+    transition: transform 0.2s ease;
+}
+
+.mission-item:hover {
+    transform: translateY(-2px);
+}
+
+.mission-item.active {
+    border-left: 4px solid var(--warning-color);
+}
+
+.mission-item.in-progress {
+    border-left: 4px solid var(--accent-color);
+}
+
+.mission-item.completed {
+    border-left: 4px solid var(--success-color);
+    opacity: 0.8;
+}
+
+/* Vehicle and Building Buttons */
+.vehicle-list button, .building-section button {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 8px;
+    border: none;
+    border-radius: var(--border-radius);
+    background: white;
+    box-shadow: var(--box-shadow);
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.vehicle-list button:hover, .building-section button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.vehicle-list button.locked {
+    opacity: 0.7;
+    background: #f8f9fa;
+}
+
+/* Limited Time Offers */
+.limited-offers-section {
+    background: linear-gradient(135deg, #fff9c4, #ffecb3);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    border: none;
+    box-shadow: var(--box-shadow);
+    margin-bottom: 20px;
+}
+
+.offer-item {
+    background: white;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: var(--border-radius);
+    border: none;
+    box-shadow: var(--box-shadow);
+    position: relative;
+    transition: transform 0.2s ease;
+}
+
+.offer-item:hover {
+    transform: translateY(-2px);
+}
+
+.offer-item .timer {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--danger-color);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.8em;
+}
+
+.offer-item .discount {
+    color: var(--success-color);
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Service Badges */
+.service-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.service-badge.tfs {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.service-badge.ses {
+    background-color: var(--warning-color);
+    color: var(--dark-color);
+}
+
+/* Achievements */
+.achievement-item {
+    background: white;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.achievement-item .icon {
+    font-size: 1.5em;
+}
+
+.achievement-item.locked {
+    opacity: 0.6;
+}
+
+/* Notifications */
+.achievement-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--success-color), #38a169);
+    color: white;
+    padding: 15px 25px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    animation: slideIn 0.5s ease-out;
+    z-index: 1000;
+}
+
+/* Level Up Modal */
+.level-up-modal {
+    background: white;
+    padding: 30px;
+    border-radius: var(--border-radius);
+    text-align: center;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+}
+
+.level-up-modal h3 {
+    color: var(--primary-color);
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+/* Animations */
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes flash {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.flash-sale {
+    animation: flash 1.5s infinite;
+}
+
+/* Weather Icons */
+.weather-icon {
+    font-size: 2em;
+    margin-right: 10px;
+}
+
+/* Progress Bars */
+.progress {
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: #e9ecef;
+    margin: 10px 0;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+    background: linear-gradient(90deg, var(--success-color), #38a169);
+}
+
+/* Tooltips */
+.tooltip {
+    background: var(--dark-color);
+    color: white;
+    padding: 8px 12px;
+    border-radius: var(--border-radius);
+    font-size: 0.9em;
+    box-shadow: var(--box-shadow);
+    max-width: 200px;
+    z-index: 1000;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    #sidebar {
+        width: 100%;
+        height: 50vh;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        z-index: 1000;
+    }
+    
+    #map {
+        height: 50vh;
+    }
+    
+    .weather-overlay, .stats-overlay {
+        position: fixed;
+        top: 10px;
+    }
+}
+
+/* Original Styles */
+.container-fluid {
+    height: 100vh;
+    padding: 0;
+}
+
+.row {
+    height: 100%;
+    margin: 0;
+}
+
+.sidebar {
+    padding: 15px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+}
+
+.vehicle-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.vehicle-list button {
+    text-align: left;
+    position: relative;
+}
+
+.vehicle-list button.locked {
+    opacity: 0.6;
+}
+
+.vehicle-list button .unlock-info {
+    font-size: 0.8em;
+    color: #6c757d;
+}
+
+.mission-section {
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.mission-item {
+    background-color: #f8f9fa;
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 5px;
+    border-left: 4px solid #dc3545;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mission-item.in-progress {
+    border-left-color: #ffc107;
+}
+
+.mission-item.completed {
+    border-left-color: #198754;
+}
+
+.weather-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 5px 10px;
+    border-radius: 5px;
+    z-index: 1000;
+    font-size: 1.2em;
+}
+
+.stats-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 5px 10px;
+    border-radius: 5px;
+    z-index: 1000;
+}
+
+.weather-overlay span,
+.stats-overlay span {
+    margin-right: 15px;
+}
+
+.tooltip-custom {
+    position: absolute;
+    display: none;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.achievements-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.achievement-item {
+    background-color: #f8f9fa;
+    padding: 8px;
+    margin: 5px 0;
+    border-radius: 4px;
+    border-left: 4px solid #198754;
+    font-size: 0.9em;
+}
+
+.achievement-item.locked {
+    border-left-color: #6c757d;
+    opacity: 0.7;
+}
+
+.mission-filters {
+    font-size: 0.8em;
+}
+
+.vehicle-stats {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+.mission-priority {
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.priority-high {
+    color: #dc3545;
+}
+
+.priority-medium {
+    color: #ffc107;
+}
+
+.priority-low {
+    color: #198754;
+}
+
+.experience-gain {
+    position: absolute;
+    color: #28a745;
+    font-weight: bold;
+    animation: floatUp 1s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes floatUp {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+.mission-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
+}
+
+.station-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+}
+
+.vehicle-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
+}
+
+.limited-offers-section {
+    background-color: #fff3cd;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ffeeba;
+}
+
+.offer-item {
+    background-color: white;
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 5px;
+    border: 1px solid #ffeeba;
+    position: relative;
+}
+
+.offer-item .timer {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 0.8em;
+    color: #dc3545;
+}
+
+.offer-item .discount {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.offer-item .original-price {
+    text-decoration: line-through;
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.service-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    margin-right: 5px;
+}
+
+.service-badge.tfs {
+    background-color: #dc3545;
+    color: white;
+}
+
+.service-badge.ses {
+    background-color: #ffc107;
+    color: black;
+}
+
+.flash-sale {
+    animation: flash 2s infinite;
+}
+
+@keyframes flash {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+#ses-buildings button,
+#ses-vehicles button {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: black;
+}
+
+#ses-buildings button:hover,
+#ses-vehicles button:hover {
+    background-color: #e0a800;
+    border-color: #e0a800;
+}
