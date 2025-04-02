@@ -1,5 +1,5 @@
 let map;
-let budget = 1000000;
+let budget = 2000000;
 let selectedItem = null;
 let gameState = {
     stations: [],
@@ -17,13 +17,14 @@ let gameState = {
 
 // Game configuration
 const DIFFICULTY_SETTINGS = {
-    easy: { missionInterval: 90000, baseReward: 7000, xpMultiplier: 0.8 },
-    normal: { missionInterval: 60000, baseReward: 5000, xpMultiplier: 1.0 },
-    hard: { missionInterval: 30000, baseReward: 3000, xpMultiplier: 1.5 }
+    easy: { missionInterval: 90000, baseReward: 7000, xpMultiplier: 0.8, incomeMultiplier: 1.5 },
+    normal: { missionInterval: 60000, baseReward: 5000, xpMultiplier: 1.0, incomeMultiplier: 1.0 },
+    hard: { missionInterval: 30000, baseReward: 3000, xpMultiplier: 1.5, incomeMultiplier: 0.8 }
 };
 
 let currentDifficulty = 'normal';
 let missionGenerator = null;
+let incomeGenerator = null;
 
 // Tasmania coordinates
 const MAP_CENTER = [-42.0, 147.0];
@@ -168,6 +169,7 @@ function initMap() {
     generateOffer();
     setInterval(generateOffer, 180000); // New offer every 3 minutes
     setInterval(updateOffersDisplay, 1000); // Update timers every second
+    startIncomeGeneration();
 }
 
 function setupTooltips() {
@@ -264,6 +266,7 @@ function changeDifficulty() {
         clearInterval(missionGenerator);
     }
     startMissionGenerator();
+    startIncomeGeneration();
 }
 
 function addExperience(amount) {
@@ -607,6 +610,32 @@ function startMissionGenerator() {
     }, DIFFICULTY_SETTINGS[currentDifficulty].missionInterval); // Generate a new mission based on difficulty
 }
 
+function startIncomeGeneration() {
+    if (incomeGenerator) {
+        clearInterval(incomeGenerator);
+    }
+    
+    incomeGenerator = setInterval(() => {
+        const baseIncome = 50000 * DIFFICULTY_SETTINGS[currentDifficulty].incomeMultiplier;
+        const stationBonus = gameState.stations.length * 10000; // $10k per station
+        const totalIncome = baseIncome + stationBonus;
+        
+        budget += totalIncome;
+        updateBudgetDisplay();
+        
+        // Show income notification
+        const notification = document.createElement('div');
+        notification.className = 'achievement-notification';
+        notification.innerHTML = `+$${totalIncome.toLocaleString()} Income`;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+        
+    }, 60000); // Generate income every minute
+}
+
 function generateOffer() {
     const allVehicles = { ...VEHICLES, ...SES_VEHICLES };
     const vehicleTypes = Object.keys(allVehicles);
@@ -733,7 +762,8 @@ function saveGameState() {
             position: mission.position,
             status: mission.status
         })),
-        stats: gameState.stats
+        stats: gameState.stats,
+        difficulty: currentDifficulty
     };
     
     localStorage.setItem('aussieFireChief', JSON.stringify(saveData));
@@ -771,8 +801,10 @@ function loadGameState() {
         gameState.missions.push(missionObj);
     });
     gameState.stats = state.stats;
+    currentDifficulty = state.difficulty;
     
     updateMissionList();
+    startIncomeGeneration();
 }
 
 // Initialize the game when the page loads
