@@ -76,29 +76,25 @@ const VEHICLE_EFFECTIVENESS = {
 
 // Vehicle definitions with unlock requirements
 const VEHICLES = {
-    'light-tanker': { cost: 200000, level: 1, name: 'Light Tanker' },
-    'medium-pumper': { cost: 300000, level: 1, name: 'Medium Pumper' },
-    'support': { cost: 150000, level: 1, name: 'Support' },
-    'medium-tanker': { cost: 250000, level: 2, name: 'Medium Tanker' },
-    'heavy-pumper': { cost: 400000, level: 3, name: 'Heavy Pumper' },
-    'rescue': { cost: 350000, level: 3, name: 'Rescue' },
-    'heavy-tanker': { cost: 350000, level: 4, name: 'Heavy Tanker' },
-    'command-support': { cost: 200000, level: 4, name: 'Command Support' },
-    'heavy-tanker-pumper': { cost: 450000, level: 5, name: 'Heavy Tanker/Pumper' },
-    'cafs-tanker': { cost: 400000, level: 6, name: 'CAFS Tanker' },
-    'hazmat': { cost: 450000, level: 7, name: 'HazMat' },
-    'heavy-tanker-pumper-rescue': { cost: 500000, level: 8, name: 'Heavy Tanker/Pumper/Rescue' },
-    'hydraulic-platform': { cost: 600000, level: 9, name: 'Hydraulic Platform' },
+    'light-tanker': { cost: 200000, level: 1, name: 'Light Tanker', description: 'Fast response vehicle for small fires' },
+    'medium-pumper': { cost: 300000, level: 1, name: 'Medium Pumper', description: 'Versatile urban firefighting unit' },
+    'heavy-tanker': { cost: 400000, level: 2, name: 'Heavy Tanker', description: 'Large capacity for rural fires' },
+    'rescue': { cost: 350000, level: 3, name: 'Rescue Unit', description: 'Specialized rescue equipment' },
+    'hazmat': { cost: 450000, level: 4, name: 'HazMat Unit', description: 'Hazardous materials response' },
+    'command-support': { cost: 250000, level: 3, name: 'Command Support', description: 'Mobile command center' },
+    'aerial-pumper': { cost: 600000, level: 6, name: 'Aerial Pumper', description: 'High-rise firefighting' },
+    'bulk-water': { cost: 500000, level: 7, name: 'Bulk Water Carrier', description: 'Large water transport' },
+    'heavy-rescue': { cost: 550000, level: 8, name: 'Heavy Rescue', description: 'Advanced rescue operations' },
+    'hydraulic-platform': { cost: 700000, level: 9, name: 'Hydraulic Platform', description: 'Elevated rescue platform' }
 };
 
-// SES Vehicles
 const SES_VEHICLES = {
-    'flood-boat': { cost: 150000, level: 1, name: 'Flood Rescue Boat' },
-    'storm-truck': { cost: 200000, level: 1, name: 'Storm Response Truck' },
-    'rescue-truck': { cost: 250000, level: 2, name: 'General Rescue Truck' },
-    'incident-control': { cost: 300000, level: 3, name: 'Incident Control Vehicle' },
-    'high-water': { cost: 350000, level: 4, name: 'High Water Rescue Vehicle' },
-    'command-unit': { cost: 400000, level: 5, name: 'Mobile Command Unit' }
+    'flood-boat': { cost: 150000, level: 1, name: 'Flood Rescue Boat', description: 'Water rescue operations' },
+    'storm-truck': { cost: 200000, level: 1, name: 'Storm Response Truck', description: 'Storm damage response' },
+    'rescue-truck': { cost: 250000, level: 2, name: 'General Rescue Truck', description: 'Multi-purpose rescue unit' },
+    'incident-control': { cost: 300000, level: 3, name: 'Incident Control Vehicle', description: 'Mobile command post' },
+    'high-water': { cost: 350000, level: 4, name: 'High Water Rescue Vehicle', description: 'Extreme flood response' },
+    'command-unit': { cost: 400000, level: 5, name: 'Mobile Command Unit', description: 'Advanced command center' }
 };
 
 // Building costs
@@ -190,71 +186,151 @@ function hideTooltip() {
     document.getElementById('tooltip').style.display = 'none';
 }
 
-function populateVehicleList() {
+function updateVehicleLists() {
+    updateTFSVehicleList();
+    updateSESVehicleList();
+}
+
+function updateTFSVehicleList() {
     const vehicleList = document.getElementById('vehicle-list');
+    if (!vehicleList) return;
+    
     vehicleList.innerHTML = '';
-    
     Object.entries(VEHICLES).forEach(([type, vehicle]) => {
+        const isLocked = vehicle.level > gameState.stats.level;
+        const canAfford = budget >= vehicle.cost;
+        
         const button = document.createElement('button');
-        button.className = `btn btn-info mb-1 ${vehicle.level > gameState.stats.level ? 'locked' : ''}`;
+        button.className = `btn w-100 mb-2 ${isLocked ? 'btn-secondary' : canAfford ? 'btn-primary' : 'btn-danger'}`;
+        button.disabled = isLocked;
         button.onclick = () => selectVehicleType(type);
-        button.onmouseenter = () => showTooltip(button, getVehicleTooltip(type, vehicle));
-        button.onmouseleave = hideTooltip;
         
-        if (vehicle.level > gameState.stats.level) {
-            button.disabled = true;
-            button.innerHTML = `${vehicle.name} ($${vehicle.cost.toLocaleString()})<br>
-                <small class="unlock-info">Unlocks at level ${vehicle.level}</small>`;
-        } else {
-            button.textContent = `${vehicle.name} ($${vehicle.cost.toLocaleString()})`;
+        button.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="vehicle-icon">${getVehicleIcon(type)}</span>
+                    <span class="ms-2">${vehicle.name}</span>
+                    ${isLocked ? `<span class="badge bg-warning ms-2">Level ${vehicle.level}</span>` : ''}
+                </div>
+                <span class="badge ${canAfford ? 'bg-light text-dark' : 'bg-danger'}">\$${vehicle.cost.toLocaleString()}</span>
+            </div>
+        `;
+        
+        if (!isLocked) {
+            const tooltip = `
+                <strong>${vehicle.name}</strong><br>
+                ${vehicle.description}<br>
+                Cost: $${vehicle.cost.toLocaleString()}<br>
+                Level Required: ${vehicle.level}
+            `;
+            button.setAttribute('data-bs-toggle', 'tooltip');
+            button.setAttribute('data-bs-html', 'true');
+            button.setAttribute('title', tooltip);
         }
         
         vehicleList.appendChild(button);
     });
+}
+
+function updateSESVehicleList() {
+    const vehicleList = document.getElementById('ses-vehicle-list');
+    if (!vehicleList) return;
     
+    vehicleList.innerHTML = '';
     Object.entries(SES_VEHICLES).forEach(([type, vehicle]) => {
-        const button = document.createElement('button');
-        button.className = `btn btn-info mb-1 ${vehicle.level > gameState.stats.level ? 'locked' : ''}`;
-        button.onclick = () => selectVehicleType(type, 'ses');
-        button.onmouseenter = () => showTooltip(button, getSESVehicleTooltip(type, vehicle));
-        button.onmouseleave = hideTooltip;
+        const isLocked = vehicle.level > gameState.stats.level;
+        const canAfford = budget >= vehicle.cost;
         
-        if (vehicle.level > gameState.stats.level) {
-            button.disabled = true;
-            button.innerHTML = `${vehicle.name} ($${vehicle.cost.toLocaleString()})<br>
-                <small class="unlock-info">Unlocks at level ${vehicle.level}</small>`;
-        } else {
-            button.textContent = `${vehicle.name} ($${vehicle.cost.toLocaleString()})`;
+        const button = document.createElement('button');
+        button.className = `btn w-100 mb-2 ${isLocked ? 'btn-secondary' : canAfford ? 'btn-warning' : 'btn-danger'}`;
+        button.disabled = isLocked;
+        button.onclick = () => selectVehicleType(type, 'ses');
+        
+        button.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="vehicle-icon">${getVehicleIcon(type, true)}</span>
+                    <span class="ms-2">${vehicle.name}</span>
+                    ${isLocked ? `<span class="badge bg-warning ms-2">Level ${vehicle.level}</span>` : ''}
+                </div>
+                <span class="badge ${canAfford ? 'bg-light text-dark' : 'bg-danger'}">\$${vehicle.cost.toLocaleString()}</span>
+            </div>
+        `;
+        
+        if (!isLocked) {
+            const tooltip = `
+                <strong>${vehicle.name}</strong><br>
+                ${vehicle.description}<br>
+                Cost: $${vehicle.cost.toLocaleString()}<br>
+                Level Required: ${vehicle.level}
+            `;
+            button.setAttribute('data-bs-toggle', 'tooltip');
+            button.setAttribute('data-bs-html', 'true');
+            button.setAttribute('title', tooltip);
         }
         
         vehicleList.appendChild(button);
     });
 }
 
-function getVehicleTooltip(type, vehicle) {
-    let tooltip = `${vehicle.name}\nCost: $${vehicle.cost.toLocaleString()}\n\nBest for:`;
+function toggleServiceType(service) {
+    // Update building sections
+    document.getElementById('tfs-buildings').style.display = service === 'tfs' ? 'block' : 'none';
+    document.getElementById('ses-buildings').style.display = service === 'ses' ? 'block' : 'none';
     
-    // Find missions where this vehicle is most effective
-    Object.entries(VEHICLE_EFFECTIVENESS).forEach(([missionType, vehicles]) => {
-        if (vehicles[type] && vehicles[type] > 1.3) {
-            tooltip += `\n- ${missionType} (${Math.round((vehicles[type] - 1) * 100)}% bonus)`;
+    // Update active states of building buttons
+    document.querySelectorAll('.building-section .btn-group button').forEach(btn => {
+        if (btn.textContent.toLowerCase().includes(service)) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
         }
     });
-    
-    return tooltip;
 }
 
-function getSESVehicleTooltip(type, vehicle) {
-    let tooltip = `${vehicle.name}\nCost: $${vehicle.cost.toLocaleString()}\n\nBest for:`;
+function toggleVehicleType(service) {
+    // Update vehicle sections
+    document.getElementById('tfs-vehicles').style.display = service === 'tfs' ? 'block' : 'none';
+    document.getElementById('ses-vehicles').style.display = service === 'ses' ? 'block' : 'none';
     
-    // Find missions where this vehicle is most effective
-    Object.entries(VEHICLE_EFFECTIVENESS).forEach(([missionType, vehicles]) => {
-        if (vehicles[type] && vehicles[type] > 1.3) {
-            tooltip += `\n- ${missionType} (${Math.round((vehicles[type] - 1) * 100)}% bonus)`;
+    // Update active states of vehicle buttons
+    document.querySelectorAll('.vehicle-section .btn-group button').forEach(btn => {
+        if (btn.textContent.toLowerCase().includes(service)) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
         }
     });
+}
+
+function updateBuildingButtons() {
+    // Update helipad button
+    const helipadBtn = document.getElementById('helipad-btn');
+    if (helipadBtn) {
+        const helipadLevel = BUILDINGS['helipad'].level;
+        const isLocked = helipadLevel > gameState.stats.level;
+        helipadBtn.disabled = isLocked;
+        if (isLocked) {
+            helipadBtn.innerHTML += ` <span class="badge bg-warning">Level ${helipadLevel}</span>`;
+        }
+    }
     
-    return tooltip;
+    // Update flood center button
+    const floodCenterBtn = document.getElementById('floodcenter-btn');
+    if (floodCenterBtn) {
+        const floodCenterLevel = BUILDINGS['floodcenter'].level;
+        const isLocked = floodCenterLevel > gameState.stats.level;
+        floodCenterBtn.disabled = isLocked;
+        if (isLocked) {
+            floodCenterBtn.innerHTML += ` <span class="badge bg-warning">Level ${floodCenterLevel}</span>`;
+        }
+    }
+}
+
+// Update all UI elements that show costs
+function updateCostDisplays() {
+    updateVehicleLists();
+    updateBuildingButtons();
 }
 
 function changeDifficulty() {
@@ -267,6 +343,7 @@ function changeDifficulty() {
     }
     startMissionGenerator();
     startIncomeGeneration();
+    updateCostDisplays();
 }
 
 function addExperience(amount) {
@@ -291,6 +368,7 @@ function addExperience(amount) {
     const progress = (gameState.stats.xp / xpNeeded) * 100;
     document.getElementById('xp-progress').style.width = `${progress}%`;
     document.getElementById('current-level').textContent = gameState.stats.level;
+    updateCostDisplays();
 }
 
 function levelUp() {
@@ -331,10 +409,11 @@ function levelUp() {
     modal.show();
     
     // Update UI
-    populateVehicleList();
+    updateVehicleLists();
     if (gameState.stats.level >= 5) {
         document.getElementById('helipad-btn').disabled = false;
     }
+    updateCostDisplays();
 }
 
 function checkAchievements() {
@@ -544,6 +623,7 @@ function handleMapClick(e) {
     if (success) {
         budget -= cost;
         updateBudgetDisplay();
+        updateCostDisplays();
         saveGameState();
         showNotification(`${selectedItem.buildingType || selectedItem.vehicleType} placed successfully!`);
     }
@@ -570,6 +650,7 @@ function placeBuilding(position, type) {
     
     // Update UI elements that depend on stations
     updateStationsList();
+    updateCostDisplays();
     return true;
 }
 
@@ -606,6 +687,7 @@ function placeVehicle(position, type, isSES = false) {
 
     // Update UI elements that depend on vehicles
     updateVehiclesList();
+    updateCostDisplays();
     return true;
 }
 
@@ -701,6 +783,7 @@ function startIncomeGeneration() {
         const income = calculateTotalIncome();
         budget += income;
         updateBudgetDisplay();
+        updateCostDisplays();
         
         // Show income notification
         const notification = document.createElement('div');
@@ -750,6 +833,7 @@ function completeMission(mission, vehicle) {
     
     budget += reward;
     updateBudgetDisplay();
+    updateCostDisplays();
     
     const message = `
         Mission Complete!<br>
@@ -827,6 +911,7 @@ function loadGameState() {
     
     updateMissionList();
     startIncomeGeneration();
+    updateCostDisplays();
 }
 
 // Initialize the game when the page loads
