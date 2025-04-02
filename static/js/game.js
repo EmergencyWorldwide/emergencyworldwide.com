@@ -197,7 +197,7 @@ function populateVehicleList() {
     Object.entries(VEHICLES).forEach(([type, vehicle]) => {
         const button = document.createElement('button');
         button.className = `btn btn-info mb-1 ${vehicle.level > gameState.stats.level ? 'locked' : ''}`;
-        button.onclick = () => selectVehicle(type);
+        button.onclick = () => selectVehicleType(type);
         button.onmouseenter = () => showTooltip(button, getVehicleTooltip(type, vehicle));
         button.onmouseleave = hideTooltip;
         
@@ -215,7 +215,7 @@ function populateVehicleList() {
     Object.entries(SES_VEHICLES).forEach(([type, vehicle]) => {
         const button = document.createElement('button');
         button.className = `btn btn-info mb-1 ${vehicle.level > gameState.stats.level ? 'locked' : ''}`;
-        button.onclick = () => selectSESVehicle(type);
+        button.onclick = () => selectVehicleType(type, 'ses');
         button.onmouseenter = () => showTooltip(button, getSESVehicleTooltip(type, vehicle));
         button.onmouseleave = hideTooltip;
         
@@ -500,15 +500,19 @@ function dispatchToMission(missionIndex) {
 }
 
 function selectBuildingType(type) {
-    selectedItem = { type: 'building', buildingType: type };
+    selectedItem = {
+        type: 'building',
+        buildingType: type
+    };
+    showNotification(`Select location for ${type.replace('-', ' ').toUpperCase()}`);
 }
 
-function selectVehicle(type) {
-    selectedItem = { type: 'vehicle', vehicleType: type };
-}
-
-function selectSESVehicle(type) {
-    selectedItem = { type: 'sesVehicle', vehicleType: type };
+function selectVehicleType(type, service = 'tfs') {
+    selectedItem = {
+        type: service === 'tfs' ? 'vehicle' : 'ses-vehicle',
+        vehicleType: type
+    };
+    showNotification(`Select a station to place ${type.replace('-', ' ').toUpperCase()}`);
 }
 
 function handleMapClick(e) {
@@ -523,18 +527,145 @@ function handleMapClick(e) {
         return;
     }
 
+    let success = false;
     if (selectedItem.type === 'building') {
-        placeBuilding(position, selectedItem.buildingType);
-    } else if (selectedItem.type === 'vehicle') {
-        placeVehicle(position, selectedItem.vehicleType);
-    } else {
-        placeSESVehicle(position, selectedItem.vehicleType);
+        success = placeBuilding(position, selectedItem.buildingType);
+    } else if (selectedItem.type === 'vehicle' || selectedItem.type === 'ses-vehicle') {
+        // Check if clicked near a compatible station
+        const nearestStation = findNearestStation(position);
+        if (nearestStation && isStationCompatible(nearestStation, selectedItem)) {
+            success = placeVehicle(nearestStation.position, selectedItem.vehicleType, selectedItem.type === 'ses-vehicle');
+        } else {
+            showNotification('Must place vehicle at a compatible station!', 'danger');
+            return;
+        }
     }
 
-    budget -= cost;
-    updateBudgetDisplay();
-    saveGameState();
+    if (success) {
+        budget -= cost;
+        updateBudgetDisplay();
+        saveGameState();
+        showNotification(`${selectedItem.buildingType || selectedItem.vehicleType} placed successfully!`);
+    }
     selectedItem = null;
+}
+
+function placeBuilding(position, type) {
+    const marker = L.marker(position, {
+        icon: L.divIcon({
+            className: `building-icon ${type}`,
+            html: getBuildingIcon(type),
+            iconSize: [40, 40]
+        })
+    }).addTo(map);
+
+    const building = {
+        type: type,
+        position: position,
+        marker: marker,
+        vehicles: []
+    };
+
+    gameState.stations.push(building);
+    
+    // Update UI elements that depend on stations
+    updateStationsList();
+    return true;
+}
+
+function placeVehicle(position, type, isSES = false) {
+    const vehicles = isSES ? SES_VEHICLES : VEHICLES;
+    if (!(type in vehicles)) {
+        showNotification('Invalid vehicle type!', 'danger');
+        return false;
+    }
+
+    const marker = L.marker(position, {
+        icon: L.divIcon({
+            className: `vehicle-icon ${type}`,
+            html: getVehicleIcon(type, isSES),
+            iconSize: [30, 30]
+        })
+    }).addTo(map);
+
+    const vehicle = {
+        type: type,
+        position: position,
+        marker: marker,
+        status: 'ready',
+        service: isSES ? 'ses' : 'tfs'
+    };
+
+    gameState.vehicles.push(vehicle);
+    
+    // Add to station's vehicle list
+    const station = findNearestStation(position);
+    if (station) {
+        station.vehicles.push(vehicle);
+    }
+
+    // Update UI elements that depend on vehicles
+    updateVehiclesList();
+    return true;
+}
+
+function findNearestStation(position) {
+    let nearest = null;
+    let minDistance = Infinity;
+    
+    gameState.stations.forEach(station => {
+        const distance = L.latLng(station.position).distanceTo(L.latLng(position));
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearest = station;
+        }
+    });
+    
+    // Only return if within 100 meters
+    return minDistance <= 100 ? nearest : null;
+}
+
+function isStationCompatible(station, item) {
+    if (item.type === 'vehicle') {
+        return station.type === 'firestation' || station.type === 'helipad';
+    } else if (item.type === 'ses-vehicle') {
+        return station.type === 'sesstation' || station.type === 'floodcenter';
+    }
+    return false;
+}
+
+function getBuildingIcon(type) {
+    const icons = {
+        'firestation': '🚒',
+        'helipad': '🚁',
+        'sesstation': '🚑',
+        'floodcenter': '⛈️'
+    };
+    return icons[type] || '🏢';
+}
+
+function getVehicleIcon(type, isSES) {
+    const icons = {
+        // TFS vehicles
+        'light-tanker': '🚒',
+        'medium-pumper': '🚒',
+        'heavy-tanker': '🚒',
+        'rescue': '🚑',
+        'hazmat': '⚠️',
+        'command-support': '🚓',
+        'aerial-pumper': '🚒',
+        'bulk-water': '🚛',
+        'heavy-rescue': '🚛',
+        'hydraulic-platform': '🏗️',
+        // SES vehicles
+        'flood-boat': '⛵',
+        'storm-truck': '🚛',
+        'rescue-truck': '🚑',
+        'incident-control': '🚓',
+        'high-water': '🚛',
+        'command-unit': '🚓'
+    };
+    return icons[type] || (isSES ? '🚙' : '🚗');
 }
 
 function showNotification(message, type = 'success') {
@@ -551,70 +682,6 @@ function showNotification(message, type = 'success') {
     setTimeout(() => {
         notification.remove();
     }, 3000);
-}
-
-function placeFireStation(position) {
-    const station = {
-        position: position,
-        vehicles: [],
-        marker: L.marker(position, {
-            icon: L.divIcon({
-                className: 'station-icon',
-                html: '🏢',
-                iconSize: [25, 25]
-            })
-        }).addTo(map)
-    };
-
-    gameState.stations.push(station);
-}
-
-function placeVehicle(position, type) {
-    // Set appropriate emoji for vehicle type
-    let vehicleEmoji = '🚒'; // default
-    if (type.includes('rescue')) vehicleEmoji = '🚑';
-    else if (type.includes('hazmat')) vehicleEmoji = '🚛';
-    else if (type.includes('command')) vehicleEmoji = '🚓';
-    else if (type.includes('support')) vehicleEmoji = '🚐';
-    else if (type.includes('platform')) vehicleEmoji = '🚁';
-
-    const vehicle = {
-        type: type,
-        position: position,
-        status: 'available',
-        marker: L.marker(position, {
-            icon: L.divIcon({
-                className: 'vehicle-icon',
-                html: vehicleEmoji,
-                iconSize: [25, 25]
-            })
-        }).addTo(map)
-    };
-
-    gameState.vehicles.push(vehicle);
-}
-
-function placeSESVehicle(position, type) {
-    let vehicleEmoji = '🚛'; // default
-    if (type.includes('boat')) vehicleEmoji = '🚤';
-    else if (type.includes('control')) vehicleEmoji = '🚓';
-    else if (type.includes('rescue')) vehicleEmoji = '🚑';
-    
-    const vehicle = {
-        type: type,
-        position: position,
-        status: 'available',
-        service: 'ses',
-        marker: L.marker(position, {
-            icon: L.divIcon({
-                className: 'vehicle-icon',
-                html: vehicleEmoji,
-                iconSize: [25, 25]
-            })
-        }).addTo(map)
-    };
-    
-    gameState.vehicles.push(vehicle);
 }
 
 function startMissionGenerator() {
@@ -732,12 +799,12 @@ function loadGameState() {
     budget = state.budget || 5000000;
     updateBudgetDisplay();
 
-    state.stations.forEach(station => placeFireStation(station.position));
+    state.stations.forEach(station => placeBuilding(station.position, station.type));
     state.vehicles.forEach(vehicle => {
         if (vehicle.type in VEHICLES) {
             placeVehicle(vehicle.position, vehicle.type);
         } else {
-            placeSESVehicle(vehicle.position, vehicle.type);
+            placeVehicle(vehicle.position, vehicle.type, true);
         }
     });
     state.missions.forEach(mission => {
