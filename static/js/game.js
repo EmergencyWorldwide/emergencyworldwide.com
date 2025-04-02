@@ -1,6 +1,19 @@
+// Game state
 let map;
 let budget = 5000000; // Starting with $5M
 let selectedItem = null;
+let incomeGenerator = null;
+let missionGenerator = null;
+let activeOffers = [];
+let currentDifficulty = 'normal';
+
+// Game constants
+const INITIAL_BUDGET = 5000000;
+const BASE_INCOME_RATE = 100000;
+const MAP_CENTER = [-42.0, 147.0];
+const SAVE_KEY = 'aussieFireChief';
+
+// Game state object
 let gameState = {
     stations: [],
     vehicles: [],
@@ -10,10 +23,306 @@ let gameState = {
         totalResponseTime: 0,
         level: 1,
         xp: 0,
-        achievements: [],
-        limitedTimeOffersPurchased: 0
+        achievements: []
     }
 };
+
+// Initialize game
+function initGame() {
+    try {
+        // Initialize map
+        map = L.map('map').setView(MAP_CENTER, 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        map.on('click', handleMapClick);
+
+        // Load saved game
+        loadGameState();
+
+        // Initialize UI
+        document.getElementById('difficulty').value = currentDifficulty;
+        updateBudgetDisplay();
+        updateVehicleLists();
+        updateBuildingButtons();
+        updateMissionList();
+
+        // Start game systems
+        startIncomeGeneration();
+        startMissionGeneration();
+        updateAchievements();
+
+        // Start periodic updates
+        setInterval(() => {
+            updateVehicleLists();
+            updateBuildingButtons();
+            updateMissionList();
+            saveGameState();
+        }, 1000);
+
+        // Start offer generation
+        setInterval(generateOffer, 120000);
+    } catch (error) {
+        console.error('Game initialization error:', error);
+        showNotification('Error initializing game. Please refresh.', 'danger');
+    }
+}
+
+// Save/Load functions
+function saveGameState() {
+    try {
+        const saveData = {
+            budget: budget,
+            difficulty: currentDifficulty,
+            stats: gameState.stats,
+            stations: gameState.stations.map(station => ({
+                type: station.type,
+                position: station.position,
+                vehicles: station.vehicles.map(v => v.type)
+            })),
+            vehicles: gameState.vehicles.map(vehicle => ({
+                type: vehicle.type,
+                position: vehicle.position,
+                status: vehicle.status,
+                service: vehicle.service
+            })),
+            missions: gameState.missions.map(mission => ({
+                type: mission.type,
+                position: mission.position,
+                status: mission.status,
+                reward: mission.reward,
+                timeLeft: mission.timeLeft
+            }))
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+    } catch (error) {
+        console.error('Save error:', error);
+        showNotification('Error saving game', 'danger');
+    }
+}
+
+function loadGameState() {
+    try {
+        const savedState = localStorage.getItem(SAVE_KEY);
+        if (!savedState) return;
+
+        const state = JSON.parse(savedState);
+        
+        // Restore basic state
+        budget = state.budget || INITIAL_BUDGET;
+        currentDifficulty = state.difficulty || 'normal';
+        gameState.stats = state.stats || {
+            missionsCompleted: 0,
+            totalResponseTime: 0,
+            level: 1,
+            xp: 0,
+            achievements: []
+        };
+
+        // Clear existing markers
+        if (map) {
+            gameState.stations.forEach(s => s.marker?.remove());
+            gameState.vehicles.forEach(v => v.marker?.remove());
+            gameState.missions.forEach(m => m.marker?.remove());
+        }
+
+        // Reset arrays
+        gameState.stations = [];
+        gameState.vehicles = [];
+        gameState.missions = [];
+
+        // Restore stations
+        state.stations?.forEach(station => {
+            placeBuilding(station.position, station.type);
+        });
+
+        // Restore vehicles
+        state.vehicles?.forEach(vehicle => {
+            placeVehicle(vehicle.position, vehicle.type, vehicle.service === 'ses');
+        });
+
+        // Restore missions
+        state.missions?.forEach(mission => {
+            createMission(mission.position, mission.type, mission.reward, mission.timeLeft);
+        });
+
+        // Update UI
+        updateBudgetDisplay();
+        updateVehicleLists();
+        updateBuildingButtons();
+        updateMissionList();
+    } catch (error) {
+        console.error('Load error:', error);
+        showNotification('Error loading saved game', 'danger');
+        resetGame();
+    }
+}
+
+function resetGame() {
+    try {
+        // Clear game state
+        budget = INITIAL_BUDGET;
+        currentDifficulty = 'normal';
+        gameState = {
+            stations: [],
+            vehicles: [],
+            missions: [],
+            stats: {
+                missionsCompleted: 0,
+                totalResponseTime: 0,
+                level: 1,
+                xp: 0,
+                achievements: []
+            }
+        };
+
+        // Clear map markers
+        if (map) {
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker) {
+                    layer.remove();
+                }
+            });
+        }
+
+        // Clear intervals
+        if (incomeGenerator) clearInterval(incomeGenerator);
+        if (missionGenerator) clearInterval(missionGenerator);
+
+        // Reset UI
+        document.getElementById('difficulty').value = 'normal';
+        updateBudgetDisplay();
+        updateVehicleLists();
+        updateBuildingButtons();
+        updateMissionList();
+
+        // Restart systems
+        startIncomeGeneration();
+        startMissionGeneration();
+
+        // Save clean state
+        saveGameState();
+        
+        showNotification('Game reset successfully');
+    } catch (error) {
+        console.error('Reset error:', error);
+        showNotification('Error resetting game', 'danger');
+    }
+}
+
+// Mission handling
+function createMission(position, type, reward, timeLeft) {
+    try {
+        const marker = L.marker(position, {
+            icon: L.divIcon({
+                className: `mission-icon ${type.toLowerCase()}`,
+                html: getMissionIcon(type),
+                iconSize: [30, 30]
+            })
+        }).addTo(map);
+
+        const mission = {
+            type: type,
+            position: position,
+            reward: reward,
+            timeLeft: timeLeft,
+            status: 'active',
+            marker: marker
+        };
+
+        gameState.missions.push(mission);
+        updateMissionList();
+        return mission;
+    } catch (error) {
+        console.error('Mission creation error:', error);
+        return null;
+    }
+}
+
+function startMissionGeneration() {
+    if (missionGenerator) {
+        clearInterval(missionGenerator);
+    }
+
+    missionGenerator = setInterval(() => {
+        try {
+            if (gameState.stations.length === 0) return;
+
+            // Generate random position near a station
+            const randomStation = gameState.stations[Math.floor(Math.random() * gameState.stations.length)];
+            const radius = 0.05; // Roughly 5km
+            const randomPosition = [
+                randomStation.position[0] + (Math.random() - 0.5) * radius,
+                randomStation.position[1] + (Math.random() - 0.5) * radius
+            ];
+
+            // Generate mission
+            const missionTypes = ['Fire', 'Rescue', 'Hazmat', 'Medical'];
+            const type = missionTypes[Math.floor(Math.random() * missionTypes.length)];
+            const baseReward = DIFFICULTY_SETTINGS[currentDifficulty].baseReward;
+            const reward = Math.round(baseReward * (0.8 + Math.random() * 0.4));
+            const timeLimit = 300; // 5 minutes
+
+            createMission(randomPosition, type, reward, timeLimit);
+        } catch (error) {
+            console.error('Mission generation error:', error);
+        }
+    }, DIFFICULTY_SETTINGS[currentDifficulty].missionInterval);
+}
+
+// Income generation
+function startIncomeGeneration() {
+    if (incomeGenerator) {
+        clearInterval(incomeGenerator);
+    }
+
+    incomeGenerator = setInterval(() => {
+        try {
+            const income = calculateTotalIncome();
+            budget += income;
+            updateBudgetDisplay();
+            updateCostDisplays();
+
+            showNotification(`
+                <div class="d-flex align-items-center">
+                    <span class="me-2">💰</span>
+                    <div>
+                        <div>Income Received</div>
+                        <strong>+$${income.toLocaleString()}</strong>
+                    </div>
+                </div>
+            `);
+        } catch (error) {
+            console.error('Income generation error:', error);
+        }
+    }, 60000);
+}
+
+// Error handling wrapper for event handlers
+function handleError(fn) {
+    return function(...args) {
+        try {
+            return fn.apply(this, args);
+        } catch (error) {
+            console.error('Error in handler:', error);
+            showNotification('An error occurred', 'danger');
+        }
+    };
+}
+
+// Add error handling to event handlers
+map.on('click', handleError(handleMapClick));
+document.getElementById('difficulty').addEventListener('change', handleError(changeDifficulty));
+
+// Initialize game when page loads
+window.addEventListener('load', handleError(initGame));
+
+// Save game state before unload
+window.addEventListener('beforeunload', () => {
+    try {
+        saveGameState();
+    } catch (error) {
+        console.error('Save before unload error:', error);
+    }
+});
 
 // Game configuration
 const DIFFICULTY_SETTINGS = {
@@ -21,13 +330,6 @@ const DIFFICULTY_SETTINGS = {
     normal: { missionInterval: 60000, baseReward: 100000, xpMultiplier: 1.0, incomeMultiplier: 1.0, costMultiplier: 1.0 },
     hard: { missionInterval: 30000, baseReward: 75000, xpMultiplier: 1.2, incomeMultiplier: 0.8, costMultiplier: 1.2 }
 };
-
-let currentDifficulty = 'normal';
-let missionGenerator = null;
-let incomeGenerator = null;
-
-// Tasmania coordinates
-const MAP_CENTER = [-42.0, 147.0];
 
 // Vehicle effectiveness for different mission types (multiplier for rewards)
 const VEHICLE_EFFECTIVENESS = {
