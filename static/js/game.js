@@ -1,5 +1,5 @@
 let map;
-let budget = 2000000;
+let budget = 5000000; // Starting with $5M
 let selectedItem = null;
 let gameState = {
     stations: [],
@@ -17,9 +17,9 @@ let gameState = {
 
 // Game configuration
 const DIFFICULTY_SETTINGS = {
-    easy: { missionInterval: 90000, baseReward: 7000, xpMultiplier: 0.8, incomeMultiplier: 1.5 },
-    normal: { missionInterval: 60000, baseReward: 5000, xpMultiplier: 1.0, incomeMultiplier: 1.0 },
-    hard: { missionInterval: 30000, baseReward: 3000, xpMultiplier: 1.5, incomeMultiplier: 0.8 }
+    easy: { missionInterval: 90000, baseReward: 150000, xpMultiplier: 0.8, incomeMultiplier: 1.5, costMultiplier: 0.8 },
+    normal: { missionInterval: 60000, baseReward: 100000, xpMultiplier: 1.0, incomeMultiplier: 1.0, costMultiplier: 1.0 },
+    hard: { missionInterval: 30000, baseReward: 75000, xpMultiplier: 1.2, incomeMultiplier: 0.8, costMultiplier: 1.2 }
 };
 
 let currentDifficulty = 'normal';
@@ -103,10 +103,10 @@ const SES_VEHICLES = {
 
 // Building costs
 const BUILDINGS = {
-    'firestation': { cost: 500000, level: 1 },
-    'helipad': { cost: 750000, level: 5 },
-    'sesstation': { cost: 400000, level: 1 },
-    'floodcenter': { cost: 600000, level: 4 }
+    'firestation': { cost: 1000000, level: 1, income: 50000 },
+    'helipad': { cost: 1500000, level: 5, income: 75000 },
+    'sesstation': { cost: 800000, level: 1, income: 40000 },
+    'floodcenter': { cost: 1200000, level: 4, income: 60000 }
 };
 
 // Achievements
@@ -514,19 +514,17 @@ function selectSESVehicle(type) {
 function handleMapClick(e) {
     if (!selectedItem) return;
 
-    const cost = selectedItem.type === 'building' ? BUILDINGS[selectedItem.buildingType].cost : 
-                 selectedItem.type === 'vehicle' ? VEHICLES[selectedItem.vehicleType].cost : 
-                 SES_VEHICLES[selectedItem.vehicleType].cost;
+    const position = [e.latlng.lat, e.latlng.lng];
+    const itemType = selectedItem.type === 'building' ? 'building' : 'vehicle';
+    const cost = getCost(selectedItem.buildingType || selectedItem.vehicleType, itemType);
     
     if (budget < cost) {
-        alert('Insufficient funds!');
+        showNotification('Insufficient funds!', 'danger');
         return;
     }
 
-    const position = [e.latlng.lat, e.latlng.lng];
-
     if (selectedItem.type === 'building') {
-        placeFireStation(position);
+        placeBuilding(position, selectedItem.buildingType);
     } else if (selectedItem.type === 'vehicle') {
         placeVehicle(position, selectedItem.vehicleType);
     } else {
@@ -536,6 +534,23 @@ function handleMapClick(e) {
     budget -= cost;
     updateBudgetDisplay();
     saveGameState();
+    selectedItem = null;
+}
+
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = 'achievement-notification';
+    notification.style.backgroundColor = type === 'danger' ? '#e63946' : '#2a9d8f';
+    notification.innerHTML = `
+        <div class="d-flex align-items-center">
+            <span class="me-2">${type === 'danger' ? '⚠️' : '✅'}</span>
+            <div>${message}</div>
+        </div>`;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
 }
 
 function placeFireStation(position) {
@@ -616,17 +631,22 @@ function startIncomeGeneration() {
     }
     
     incomeGenerator = setInterval(() => {
-        const baseIncome = 50000 * DIFFICULTY_SETTINGS[currentDifficulty].incomeMultiplier;
-        const stationBonus = gameState.stations.length * 10000; // $10k per station
-        const totalIncome = baseIncome + stationBonus;
-        
-        budget += totalIncome;
+        const income = calculateTotalIncome();
+        budget += income;
         updateBudgetDisplay();
         
         // Show income notification
         const notification = document.createElement('div');
         notification.className = 'achievement-notification';
-        notification.innerHTML = `+$${totalIncome.toLocaleString()} Income`;
+        notification.style.backgroundColor = '#2a9d8f'; // Success color
+        notification.innerHTML = `
+            <div class="d-flex align-items-center">
+                <span class="me-2">💰</span>
+                <div>
+                    <div>Income Received</div>
+                    <strong>+$${income.toLocaleString()}</strong>
+                </div>
+            </div>`;
         document.body.appendChild(notification);
         
         setTimeout(() => {
@@ -636,114 +656,67 @@ function startIncomeGeneration() {
     }, 60000); // Generate income every minute
 }
 
-function generateOffer() {
-    const allVehicles = { ...VEHICLES, ...SES_VEHICLES };
-    const vehicleTypes = Object.keys(allVehicles);
-    const selectedType = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-    const vehicle = allVehicles[selectedType];
-    
-    const discountPercent = Math.floor(Math.random() * 3) * 15 + 20; // 20%, 35%, or 50% off
-    const discountedCost = Math.round(vehicle.cost * (1 - discountPercent / 100));
-    
-    const duration = (Math.floor(Math.random() * 3) + 1) * 60000; // 1-3 minutes
-    
-    const offer = {
-        type: selectedType,
-        name: vehicle.name,
-        originalCost: vehicle.cost,
-        discountedCost: discountedCost,
-        discountPercent: discountPercent,
-        endTime: Date.now() + duration,
-        service: selectedType in VEHICLES ? 'tfs' : 'ses'
-    };
-    
-    activeOffers.push(offer);
-    updateOffersDisplay();
-}
-
-function updateOffersDisplay() {
-    const offersList = document.getElementById('offers-list');
-    offersList.innerHTML = '';
-    
-    activeOffers = activeOffers.filter(offer => offer.endTime > Date.now());
-    
-    activeOffers.forEach(offer => {
-        const timeLeft = Math.max(0, Math.ceil((offer.endTime - Date.now()) / 1000));
-        const div = document.createElement('div');
-        div.className = 'offer-item';
-        if (timeLeft < 30) div.classList.add('flash-sale');
-        
-        div.innerHTML = `
-            <span class="service-badge ${offer.service}">${offer.service.toUpperCase()}</span>
-            ${offer.name}<br>
-            <span class="discount">-${offer.discountPercent}% OFF!</span><br>
-            <span class="original-price">$${offer.originalCost.toLocaleString()}</span>
-            <strong>$${offer.discountedCost.toLocaleString()}</strong>
-            <span class="timer">${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}</span>
-            <button class="btn btn-sm btn-success mt-2" onclick="purchaseOffer('${offer.type}')">Purchase</button>
-        `;
-        
-        offersList.appendChild(div);
+function calculateTotalIncome() {
+    let stationIncome = 0;
+    gameState.stations.forEach(station => {
+        stationIncome += BUILDINGS[station.type]?.income || 0;
     });
+    
+    const totalIncome = (100000 + stationIncome) * DIFFICULTY_SETTINGS[currentDifficulty].incomeMultiplier;
+    return totalIncome;
 }
 
-function purchaseOffer(type) {
-    const offer = activeOffers.find(o => o.type === type);
-    if (!offer) return;
-    
-    if (budget >= offer.discountedCost) {
-        budget -= offer.discountedCost;
-        updateBudgetDisplay();
-        
-        // Add vehicle to appropriate list
-        if (offer.service === 'tfs') {
-            placeVehicle(selectedPosition || [MAP_CENTER[0], MAP_CENTER[1]], type);
-        } else {
-            placeSESVehicle(selectedPosition || [MAP_CENTER[0], MAP_CENTER[1]], type);
-        }
-        
-        // Remove the offer
-        activeOffers = activeOffers.filter(o => o !== offer);
-        updateOffersDisplay();
-        
-        // Check for achievement
-        gameState.stats.limitedTimeOffersPurchased = (gameState.stats.limitedTimeOffersPurchased || 0) + 1;
-        if (gameState.stats.limitedTimeOffersPurchased >= 3) {
-            checkAchievement('flash_sale');
-        }
-    } else {
-        alert('Insufficient funds!');
+function getCost(type, itemType = 'building') {
+    let baseCost;
+    if (itemType === 'building') {
+        baseCost = BUILDINGS[type].cost;
+    } else if (itemType === 'vehicle') {
+        baseCost = VEHICLES[type]?.cost || SES_VEHICLES[type]?.cost || 0;
     }
+    return Math.round(baseCost * DIFFICULTY_SETTINGS[currentDifficulty].costMultiplier);
 }
 
-function toggleServiceType(service) {
-    document.getElementById('tfs-buildings').style.display = service === 'tfs' ? 'block' : 'none';
-    document.getElementById('ses-buildings').style.display = service === 'ses' ? 'block' : 'none';
+function completeMission(mission, vehicle) {
+    const baseReward = DIFFICULTY_SETTINGS[currentDifficulty].baseReward;
+    const effectiveness = VEHICLE_EFFECTIVENESS[mission.type]?.[vehicle.type] || 1.0;
+    const reward = Math.round(baseReward * effectiveness);
     
-    const buttons = document.querySelectorAll('.building-section .btn-group button');
-    buttons.forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.toLowerCase() === service) {
-            btn.classList.add('active');
-        }
-    });
-}
-
-function toggleVehicleType(service) {
-    document.getElementById('tfs-vehicles').style.display = service === 'tfs' ? 'block' : 'none';
-    document.getElementById('ses-vehicles').style.display = service === 'ses' ? 'block' : 'none';
+    budget += reward;
+    updateBudgetDisplay();
     
-    const buttons = document.querySelectorAll('.vehicle-section .btn-group button');
-    buttons.forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.toLowerCase() === service) {
-            btn.classList.add('active');
-        }
-    });
+    const message = `
+        Mission Complete!<br>
+        Reward: $${reward.toLocaleString()}
+        ${effectiveness > 1 ? `<br>Perfect vehicle choice! (+${Math.round((effectiveness - 1) * 100)}% bonus)` : ''}
+    `;
+    showNotification(message);
+    
+    // Add XP
+    const xp = Math.round(50 * effectiveness * DIFFICULTY_SETTINGS[currentDifficulty].xpMultiplier);
+    addExperience(xp);
 }
 
 function updateBudgetDisplay() {
-    document.getElementById('budget').textContent = budget.toLocaleString();
+    const budgetElement = document.getElementById('budget');
+    const currentValue = parseInt(budgetElement.textContent.replace(/,/g, ''));
+    const targetValue = budget;
+    
+    if (currentValue === targetValue) return;
+    
+    const step = Math.ceil(Math.abs(targetValue - currentValue) / 20);
+    const increment = targetValue > currentValue ? step : -step;
+    
+    function animate() {
+        const newValue = parseInt(budgetElement.textContent.replace(/,/g, '')) + increment;
+        if ((increment > 0 && newValue >= targetValue) || (increment < 0 && newValue <= targetValue)) {
+            budgetElement.textContent = targetValue.toLocaleString();
+        } else {
+            budgetElement.textContent = newValue.toLocaleString();
+            requestAnimationFrame(animate);
+        }
+    }
+    
+    animate();
 }
 
 function saveGameState() {
