@@ -720,26 +720,8 @@ function updateBudgetDisplay() {
 }
 
 function saveGameState() {
-    const saveData = {
-        budget: budget,
-        stations: gameState.stations.map(station => ({
-            position: station.position
-        })),
-        vehicles: gameState.vehicles.map(vehicle => ({
-            type: vehicle.type,
-            position: vehicle.position,
-            status: vehicle.status
-        })),
-        missions: gameState.missions.map(mission => ({
-            type: mission.type,
-            position: mission.position,
-            status: mission.status
-        })),
-        stats: gameState.stats,
-        difficulty: currentDifficulty
-    };
-    
-    localStorage.setItem('aussieFireChief', JSON.stringify(saveData));
+    gameState.budget = budget;
+    localStorage.setItem('aussieFireChief', JSON.stringify(gameState));
 }
 
 function loadGameState() {
@@ -747,7 +729,7 @@ function loadGameState() {
     if (!savedState) return;
 
     const state = JSON.parse(savedState);
-    budget = state.budget;
+    budget = state.budget || 5000000;
     updateBudgetDisplay();
 
     state.stations.forEach(station => placeFireStation(station.position));
