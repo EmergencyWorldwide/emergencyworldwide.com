@@ -1,397 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aussie Fire Chief Simulator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
-    <link rel="stylesheet" href="static/css/style.css">
-    <style>
-        /* Game Styles */
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #map {
-            flex: 1;
-            height: 100vh;
-        }
-
-        #sidebar {
-            width: 300px;
-            height: 100vh;
-            overflow-y: auto;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-left: 1px solid #dee2e6;
-        }
-
-        .mission-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            margin-bottom: 5px;
-            border-radius: 5px;
-            background-color: #fff;
-            border: 1px solid #ddd;
-        }
-
-        .mission-item.active {
-            border-left: 4px solid #ffc107;
-        }
-
-        .mission-item.in-progress {
-            border-left: 4px solid #17a2b8;
-        }
-
-        .mission-item.completed {
-            border-left: 4px solid #28a745;
-            opacity: 0.7;
-        }
-
-        .vehicle-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2em;
-        }
-
-        .mission-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2em;
-        }
-
-        .tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-size: 12px;
-            pointer-events: none;
-            z-index: 1000;
-            white-space: pre-line;
-        }
-
-        .vehicle-list button {
-            width: 100%;
-            text-align: left;
-            margin-bottom: 5px;
-        }
-
-        .vehicle-list button.locked {
-            opacity: 0.7;
-        }
-
-        .unlock-info {
-            color: #dc3545;
-            font-size: 0.8em;
-        }
-
-        .weather-overlay {
-            position: absolute;
-            top: 10px;
-            right: 320px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 1000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .stats-overlay {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 1000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .achievement-notification {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #28a745;
-            color: white;
-            padding: 15px;
-            border-radius: 5px;
-            animation: slideIn 0.5s ease-out;
-            z-index: 1000;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); }
-            to { transform: translateX(0); }
-        }
-
-        .level-up-modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            z-index: 2000;
-            text-align: center;
-            box-shadow: 0 0 20px rgba(0,0,0,0.2);
-        }
-
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1999;
-        }
-
-        .limited-offers-section {
-            background-color: #fff3cd;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #ffeeba;
-        }
-
-        .offer-item {
-            background-color: white;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
-            border: 1px solid #ffeeba;
-            position: relative;
-        }
-
-        .offer-item .timer {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            font-size: 0.8em;
-            color: #dc3545;
-        }
-
-        .offer-item .discount {
-            color: #28a745;
-            font-weight: bold;
-        }
-
-        .offer-item .original-price {
-            text-decoration: line-through;
-            color: #6c757d;
-            font-size: 0.9em;
-        }
-
-        .service-badge {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 0.8em;
-            margin-right: 5px;
-        }
-
-        .service-badge.tfs {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .service-badge.ses {
-            background-color: #ffc107;
-            color: black;
-        }
-
-        .flash-sale {
-            animation: flash 2s infinite;
-        }
-
-        @keyframes flash {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        #ses-buildings button,
-        #ses-vehicles button {
-            background-color: #ffc107;
-            border-color: #ffc107;
-            color: black;
-        }
-
-        #ses-buildings button:hover,
-        #ses-vehicles button:hover {
-            background-color: #e0a800;
-            border-color: #e0a800;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Triple Zero Dispatch Simulator</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <style>
+    #map { height: 400px; }
+  </style>
 </head>
-<body>
-    <div id="map"></div>
-    
-    <div id="sidebar">
-        <div class="game-header">
-            <h2 class="mb-0">Aussie Fire Chief</h2>
-            <small class="text-white-50">Emergency Response Simulator</small>
-        </div>
-        
-        <div class="stats-section">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h4 class="mb-0">Budget</h4>
-                    <h3 class="mb-0">$<span id="budget">2000000</span></h3>
-                </div>
-                <div class="difficulty-selector">
-                    <select id="difficulty" class="form-select form-select-sm" onchange="changeDifficulty()">
-                        <option value="easy">Easy Mode</option>
-                        <option value="normal" selected>Normal Mode</option>
-                        <option value="hard">Hard Mode</option>
-                    </select>
-                </div>
-            </div>
-            <div class="progress mt-3">
-                <div id="xp-progress" class="progress-bar" role="progressbar" style="width: 0%">
-                    Level <span id="current-level">1</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="limited-offers-section">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h4 class="mb-0">Limited Time Offers</h4>
-                <span class="badge bg-warning text-dark">Special Deals</span>
-            </div>
-            <div id="offers-list">
-                <!-- Offers will be populated dynamically -->
-            </div>
-        </div>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+  <div class="bg-white shadow-lg rounded-xl w-full max-w-md p-6 space-y-4 login-form">
+    <h1 class="text-2xl font-bold text-center text-red-600">Triple Zero Dispatch</h1>
+    <input type="email" id="email" placeholder="Email" class="w-full p-2 border rounded" />
+    <input type="text" id="username" placeholder="Username" class="w-full p-2 border rounded" />
+    <input type="password" id="password" placeholder="Password" class="w-full p-2 border rounded" />
+    <button onclick="register()" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">Register</button>
+    <button onclick="login()" class="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">Login</button>
+  </div>
 
-        <div class="building-section mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">Buildings</h4>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary active" onclick="toggleServiceType('tfs')">
-                        <i class="fas fa-fire-extinguisher"></i> TFS
-                    </button>
-                    <button class="btn btn-outline-warning" onclick="toggleServiceType('ses')">
-                        <i class="fas fa-water"></i> SES
-                    </button>
-                </div>
-            </div>
-            <div id="tfs-buildings">
-                <button class="btn btn-primary w-100 mb-2" onclick="selectBuildingType('firestation')">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>Fire Station</span>
-                        <span class="badge bg-light text-dark">$500,000</span>
-                    </div>
-                </button>
-                <button class="btn btn-secondary w-100 mb-2" onclick="selectBuildingType('helipad')" id="helipad-btn" disabled>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>Helipad</span>
-                        <span class="badge bg-light text-dark">$750,000</span>
-                    </div>
-                </button>
-            </div>
-            <div id="ses-buildings" style="display: none;">
-                <button class="btn btn-warning w-100 mb-2" onclick="selectBuildingType('sesstation')">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>SES Station</span>
-                        <span class="badge bg-light text-dark">$400,000</span>
-                    </div>
-                </button>
-                <button class="btn btn-info w-100 mb-2" onclick="selectBuildingType('floodcenter')" id="floodcenter-btn" disabled>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>Flood Response Center</span>
-                        <span class="badge bg-light text-dark">$600,000</span>
-                    </div>
-                </button>
-            </div>
-        </div>
-
-        <div class="vehicle-section mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">Vehicles</h4>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary active" onclick="toggleVehicleType('tfs')">
-                        <i class="fas fa-truck"></i> TFS
-                    </button>
-                    <button class="btn btn-outline-warning" onclick="toggleVehicleType('ses')">
-                        <i class="fas fa-truck-pickup"></i> SES
-                    </button>
-                </div>
-            </div>
-            <div id="tfs-vehicles">
-                <div class="vehicle-list" id="vehicle-list">
-                    <!-- TFS Vehicles will be populated dynamically -->
-                </div>
-            </div>
-            <div id="ses-vehicles" style="display: none;">
-                <div class="vehicle-list" id="ses-vehicle-list">
-                    <!-- SES Vehicles will be populated dynamically -->
-                </div>
-            </div>
-        </div>
-
-        <div class="mission-section mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">Active Missions</h4>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-secondary active" onclick="filterMissions('all')">All</button>
-                    <button class="btn btn-outline-warning" onclick="filterMissions('active')">Active</button>
-                    <button class="btn btn-outline-success" onclick="filterMissions('completed')">Done</button>
-                </div>
-            </div>
-            <div id="mission-list">
-                <!-- Missions will be populated dynamically -->
-            </div>
-        </div>
-
-        <div class="achievements-section">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">Achievements</h4>
-                <span class="badge bg-success" id="achievements-count">0/12</span>
-            </div>
-            <div id="achievements-list">
-                <!-- Achievements will be populated dynamically -->
-            </div>
-        </div>
+  <div id="game" class="hidden w-full max-w-4xl mt-6 space-y-6">
+    <div class="bg-white p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-2">Emergency Map</h2>
+      <div id="map" class="rounded"></div>
     </div>
 
-    <div class="weather-overlay">
-        <div id="weather-info" class="d-flex align-items-center">
-            <!-- Weather info will be populated dynamically -->
-        </div>
+    <div class="bg-white p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-2">Active Missions</h2>
+      <ul id="mission-list" class="space-y-2"></ul>
     </div>
 
-    <div class="stats-overlay">
-        <div id="stats-info">
-            <!-- Stats will be populated dynamically -->
-        </div>
+    <div class="bg-white p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-2">Marine Search and Rescue</h2>
+      <button onclick="buyBuilding('Marine Search and Rescue Station')" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Buy Station</button>
+      <div class="mt-4">
+        <button onclick="buyVehicle('Support')" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded mr-2">Buy Support Vehicle</button>
+        <button onclick="buyVehicle('Boat')" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded">Buy Boat (Requires Support)</button>
+      </div>
+      <ul id="marine-assets" class="mt-2 text-sm text-gray-700"></ul>
     </div>
+  </div>
 
-    <div class="modal-overlay" id="modal-overlay"></div>
-    <div class="level-up-modal" id="level-up-modal">
-        <h3>🎉 Level Up! 🎉</h3>
-        <div class="level-badge mb-3">
-            <span id="new-level" class="display-4"></span>
-        </div>
-        <div id="unlocked-items" class="mb-3"></div>
-        <button class="btn btn-success btn-lg" onclick="closeLevelUpModal()">Continue</button>
-    </div>
+  <script>
+    const missions = [
+      { id: 1, description: "House fire in Melbourne", lat: -37.8136, lng: 144.9631 },
+      { id: 2, description: "Car accident in Geelong", lat: -38.1499, lng: 144.3617 },
+      { id: 3, description: "Marine Search and Rescue near Port Phillip Bay", lat: -38.1446, lng: 144.3601 },
+    ];
 
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js"></script>
-    <script src="static/js/game.js"></script>
+    const dispatchedMissions = new Set();
+    const marineAssets = { support: 0, boats: 0 };
+
+    function register() {
+      const email = document.getElementById("email").value;
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      if (email && username && password) {
+        // Simulated email send
+        console.log(`Sending email confirmation to ${email}`);
+        alert(`Registration successful. A confirmation email has been sent to: ${email}`);
+      } else {
+        alert("Please fill in all registration details");
+      }
+    }
+
+    function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      if (username && password) {
+        document.querySelector("#game").classList.remove("hidden");
+        document.querySelector(".login-form").classList.add("hidden");
+        loadMap();
+        renderMissions();
+        renderMarineAssets();
+      } else {
+        alert("Please enter login details");
+      }
+    }
+
+    let map;
+    function loadMap() {
+      map = L.map('map').setView([-37.8136, 144.9631], 8);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+    }
+
+    function renderMissions() {
+      const list = document.getElementById("mission-list");
+      list.innerHTML = "";
+      missions.forEach((mission) => {
+        const li = document.createElement("li");
+        li.className = "bg-gray-200 p-3 rounded flex justify-between items-center";
+        const dispatched = dispatchedMissions.has(mission.id);
+        li.innerHTML = `
+          <span>${mission.description}</span>
+          <button onclick="dispatch(${mission.id})" class="${dispatched ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'} text-white px-3 py-1 rounded" ${dispatched ? 'disabled' : ''}>${dispatched ? 'Dispatched' : 'Dispatch'}</button>
+        `;
+        list.appendChild(li);
+
+        L.marker([mission.lat, mission.lng])
+          .addTo(map)
+          .bindPopup(mission.description);
+      });
+    }
+
+    function dispatch(id) {
+      if (!dispatchedMissions.has(id)) {
+        dispatchedMissions.add(id);
+        alert(`Dispatched vehicles to mission ID: ${id}`);
+        renderMissions();
+      }
+    }
+
+    function buyBuilding(name) {
+      alert(`Purchased: ${name}`);
+    }
+
+    function buyVehicle(type) {
+      if (type === 'Support') {
+        marineAssets.support++;
+        alert("Support vehicle purchased");
+      } else if (type === 'Boat') {
+        if (marineAssets.support > 0) {
+          marineAssets.boats++;
+          marineAssets.support--;
+          alert("Boat purchased (Support used to tow)");
+        } else {
+          alert("You need a Support vehicle to deploy a Boat");
+        }
+      }
+      renderMarineAssets();
+    }
+
+    function renderMarineAssets() {
+      const list = document.getElementById("marine-assets");
+      list.innerHTML = `<li>Support Vehicles: ${marineAssets.support}</li><li>Boats: ${marineAssets.boats}</li>`;
+    }
+  </script>
 </body>
 </html>
