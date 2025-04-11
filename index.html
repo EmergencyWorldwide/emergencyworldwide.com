@@ -1,145 +1,308 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Triple Zero Dispatch Simulator</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-  <style>
-    #map { height: 400px; }
-  </style>
-</head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
-  <div class="bg-white shadow-lg rounded-xl w-full max-w-md p-6 space-y-4 login-form">
-    <h1 class="text-2xl font-bold text-center text-red-600">Triple Zero Dispatch</h1>
-    <input type="email" id="email" placeholder="Email" class="w-full p-2 border rounded" />
-    <input type="text" id="username" placeholder="Username" class="w-full p-2 border rounded" />
-    <input type="password" id="password" placeholder="Password" class="w-full p-2 border rounded" />
-    <button onclick="register()" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">Register</button>
-    <button onclick="login()" class="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600">Login</button>
-  </div>
-
-  <div id="game" class="hidden w-full max-w-4xl mt-6 space-y-6">
-    <div class="bg-white p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-2">Emergency Map</h2>
-      <div id="map" class="rounded"></div>
-    </div>
-
-    <div class="bg-white p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-2">Active Missions</h2>
-      <ul id="mission-list" class="space-y-2"></ul>
-    </div>
-
-    <div class="bg-white p-4 rounded shadow">
-      <h2 class="text-xl font-semibold mb-2">Marine Search and Rescue</h2>
-      <button onclick="buyBuilding('Marine Search and Rescue Station')" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Buy Station</button>
-      <div class="mt-4">
-        <button onclick="buyVehicle('Support')" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded mr-2">Buy Support Vehicle</button>
-        <button onclick="buyVehicle('Boat')" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded">Buy Boat (Requires Support)</button>
-      </div>
-      <ul id="marine-assets" class="mt-2 text-sm text-gray-700"></ul>
-    </div>
-  </div>
-
-  <script>
-    const missions = [
-      { id: 1, description: "House fire in Melbourne", lat: -37.8136, lng: 144.9631 },
-      { id: 2, description: "Car accident in Geelong", lat: -38.1499, lng: 144.3617 },
-      { id: 3, description: "Marine Search and Rescue near Port Phillip Bay", lat: -38.1446, lng: 144.3601 },
-    ];
-
-    const dispatchedMissions = new Set();
-    const marineAssets = { support: 0, boats: 0 };
-
-    function register() {
-      const email = document.getElementById("email").value;
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
-
-      if (email && username && password) {
-        // Simulated email send
-        console.log(`Sending email confirmation to ${email}`);
-        alert(`Registration successful. A confirmation email has been sent to: ${email}`);
-      } else {
-        alert("Please fill in all registration details");
-      }
-    }
-
-    function login() {
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
-      if (username && password) {
-        document.querySelector("#game").classList.remove("hidden");
-        document.querySelector(".login-form").classList.add("hidden");
-        loadMap();
-        renderMissions();
-        renderMarineAssets();
-      } else {
-        alert("Please enter login details");
-      }
-    }
-
-    let map;
-    function loadMap() {
-      map = L.map('map').setView([-37.8136, 144.9631], 8);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-    }
-
-    function renderMissions() {
-      const list = document.getElementById("mission-list");
-      list.innerHTML = "";
-      missions.forEach((mission) => {
-        const li = document.createElement("li");
-        li.className = "bg-gray-200 p-3 rounded flex justify-between items-center";
-        const dispatched = dispatchedMissions.has(mission.id);
-        li.innerHTML = `
-          <span>${mission.description}</span>
-          <button onclick="dispatch(${mission.id})" class="${dispatched ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'} text-white px-3 py-1 rounded" ${dispatched ? 'disabled' : ''}>${dispatched ? 'Dispatched' : 'Dispatch'}</button>
-        `;
-        list.appendChild(li);
-
-        L.marker([mission.lat, mission.lng])
-          .addTo(map)
-          .bindPopup(mission.description);
-      });
-    }
-
-    function dispatch(id) {
-      if (!dispatchedMissions.has(id)) {
-        dispatchedMissions.add(id);
-        alert(`Dispatched vehicles to mission ID: ${id}`);
-        renderMissions();
-      }
-    }
-
-    function buyBuilding(name) {
-      alert(`Purchased: ${name}`);
-    }
-
-    function buyVehicle(type) {
-      if (type === 'Support') {
-        marineAssets.support++;
-        alert("Support vehicle purchased");
-      } else if (type === 'Boat') {
-        if (marineAssets.support > 0) {
-          marineAssets.boats++;
-          marineAssets.support--;
-          alert("Boat purchased (Support used to tow)");
-        } else {
-          alert("You need a Support vehicle to deploy a Boat");
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triple Zero Dispatch Simulator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
         }
-      }
-      renderMarineAssets();
-    }
 
-    function renderMarineAssets() {
-      const list = document.getElementById("marine-assets");
-      list.innerHTML = `<li>Support Vehicles: ${marineAssets.support}</li><li>Boats: ${marineAssets.boats}</li>`;
-    }
-  </script>
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #map {
+            flex: 1;
+        }
+
+        .control-panel {
+            width: 300px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            overflow-y: auto;
+        }
+
+        .unit-list, .incident-list, .vehicle-shop {
+            margin-top: 20px;
+        }
+
+        .funds-display {
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .shop-items {
+            display: grid;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .shop-item {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+        }
+
+        .shop-item h4 {
+            margin: 0 0 5px 0;
+        }
+
+        .shop-item p {
+            margin: 0 0 10px 0;
+            color: #28a745;
+        }
+
+        .button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+        }
+
+        .button.emergency {
+            background-color: #dc3545;
+        }
+
+        .button.emergency:hover {
+            background-color: #c82333;
+        }
+
+        .unit-marker, .building-marker {
+            text-align: center;
+        }
+
+        .message-panel {
+            margin-top: 20px;
+            border-top: 1px solid #dee2e6;
+            padding-top: 20px;
+        }
+
+        .messages {
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+        }
+
+        .message {
+            padding: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid #007bff;
+            background-color: #f8f9fa;
+        }
+
+        .message:last-child {
+            margin-bottom: 0;
+        }
+
+        .response-timer {
+            background-color: #dc3545;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .settings-panel {
+            margin-top: 20px;
+            border-top: 1px solid #dee2e6;
+            padding-top: 20px;
+        }
+
+        .settings-content {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+        }
+
+        .setting-item {
+            margin-bottom: 15px;
+        }
+
+        .setting-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .setting-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .checkbox-group label {
+            font-weight: normal;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="map"></div>
+        <div class="control-panel">
+            <h2>Triple Zero Dispatch</h2>
+            <div class="funds-display">
+                <h3>Available Funds</h3>
+                <div id="funds">10000</div>
+            </div>
+
+            <div class="building-placement">
+                <h3>Build Facilities</h3>
+                <div class="shop-items">
+                    <div class="shop-item">
+                        <h4>Medical Facilities</h4>
+                        <button class="button" onclick="startBuildingPlacement('HOSPITAL')">Build Hospital ($5000)</button>
+                        <button class="button" onclick="startBuildingPlacement('MEDICAL_CENTER')">Build Medical Center ($3000)</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>Fire Services</h4>
+                        <button class="button" onclick="startBuildingPlacement('FIRE_STATION')">Build Fire Station ($4000)</button>
+                        <button class="button" onclick="startBuildingPlacement('FIRE_SUBSTATION')">Build Fire Substation ($2500)</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>Police Services</h4>
+                        <button class="button" onclick="startBuildingPlacement('POLICE_STATION')">Build Police Station ($4000)</button>
+                        <button class="button" onclick="startBuildingPlacement('POLICE_OUTPOST')">Build Police Outpost ($2500)</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>SES Facilities</h4>
+                        <button class="button" onclick="startBuildingPlacement('SES_HQ')">Build SES Headquarters ($4500)</button>
+                        <button class="button" onclick="startBuildingPlacement('SES_UNIT')">Build SES Unit ($2500)</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>Support Facilities</h4>
+                        <button class="button" onclick="startBuildingPlacement('COMMAND_CENTER')">Build Command Center ($6000)</button>
+                        <button class="button" onclick="startBuildingPlacement('TRAINING_FACILITY')">Build Training Facility ($3500)</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vehicle-shop">
+                <h3>Vehicle Shop</h3>
+                <div class="shop-items">
+                    <div class="shop-item">
+                        <h4>Ambulance</h4>
+                        <p>Cost: $2000</p>
+                        <button class="button" onclick="purchaseVehicle('AMBULANCE')">Purchase</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>Fire Truck</h4>
+                        <p>Cost: $3000</p>
+                        <button class="button" onclick="purchaseVehicle('FIRE_TRUCK')">Purchase</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>Police Car</h4>
+                        <p>Cost: $1500</p>
+                        <button class="button" onclick="purchaseVehicle('POLICE_CAR')">Purchase</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>SES Response Vehicle</h4>
+                        <p>Cost: $2500</p>
+                        <button class="button" onclick="purchaseVehicle('SES_TRUCK')">Purchase</button>
+                    </div>
+                    <div class="shop-item">
+                        <h4>SES Transport Vehicle</h4>
+                        <p>Cost: $2000</p>
+                        <p style="color: #666; font-size: 0.9em;">Equipment transport only - Not for emergency response</p>
+                        <button class="button" onclick="purchaseVehicle('SES_TRANSPORT')">Purchase</button>
+                    </div>
+                </div>
+            </div>
+            <div class="unit-list">
+                <h3>Emergency Units</h3>
+                <div id="units"></div>
+            </div>
+            <div class="incident-list">
+                <h3>Available Missions</h3>
+                <div class="mission-panel">
+                    <div class="shop-item">
+                        <h4>🔥 Bushfire Emergency</h4>
+                        <p>Reward: $334</p>
+                        <p>A bushfire is threatening nearby properties. Fire truck response required!</p>
+                        <button class="button emergency" onclick="startBushfireMission()">Accept Mission</button>
+                    </div>
+                </div>
+                <div id="incidents"></div>
+            </div>
+            <div class="settings-panel">
+                <h3>Settings</h3>
+                <div class="settings-content">
+                    <div class="setting-item">
+                        <label>Simulation Speed</label>
+                        <select id="simSpeed" onchange="updateSimulationSpeed()">
+                            <option value="0.5">Slow</option>
+                            <option value="1" selected>Normal</option>
+                            <option value="2">Fast</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Notifications</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" id="notifyDispatch" checked> Dispatch</label>
+                            <label><input type="checkbox" id="notifyArrival" checked> Arrival</label>
+                            <label><input type="checkbox" id="notifyCompletion" checked> Completion</label>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <label>Map Style</label>
+                        <select id="mapStyle" onchange="updateMapStyle()">
+                            <option value="default" selected>Default</option>
+                            <option value="satellite">Satellite</option>
+                            <option value="dark">Dark Mode</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Legal</label>
+                        <a href="policy.html" target="_blank" style="color: #007bff; text-decoration: none;">Game Policy & Terms of Service</a>
+                    </div>
+                </div>
+            </div>
+            <div class="message-panel">
+                <h3>Message Feed</h3>
+                <div id="messages" class="messages"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="audio.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
