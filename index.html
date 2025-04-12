@@ -3,186 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Triple Zero Dispatch Simulator - Emergency Response Management Game">
     <title>Triple Zero Dispatch Simulator</title>
+    
+    <!-- External CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-
-        .container {
-            display: flex;
-            height: 100vh;
-        }
-
-        #map {
-            flex: 1;
-        }
-
-        .control-panel {
-            width: 300px;
-            padding: 20px;
-            background-color: #f8f9fa;
-            overflow-y: auto;
-        }
-
-        .unit-list, .incident-list, .vehicle-shop {
-            margin-top: 20px;
-        }
-
-        .funds-display {
-            background-color: #28a745;
-            color: white;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
-
-        .shop-items {
-            display: grid;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .shop-item {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 10px;
-        }
-
-        .shop-item h4 {
-            margin: 0 0 5px 0;
-        }
-
-        .shop-item p {
-            margin: 0 0 10px 0;
-            color: #28a745;
-        }
-
-        .button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-            width: 100%;
-        }
-
-        .button:hover {
-            background-color: #0056b3;
-        }
-
-        .button.emergency {
-            background-color: #dc3545;
-        }
-
-        .button.emergency:hover {
-            background-color: #c82333;
-        }
-
-        .unit-marker, .building-marker {
-            text-align: center;
-        }
-
-        .message-panel {
-            margin-top: 20px;
-            border-top: 1px solid #dee2e6;
-            padding-top: 20px;
-        }
-
-        .messages {
-            max-height: 200px;
-            overflow-y: auto;
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 10px;
-        }
-
-        .message {
-            padding: 8px;
-            margin-bottom: 8px;
-            border-left: 4px solid #007bff;
-            background-color: #f8f9fa;
-        }
-
-        .message:last-child {
-            margin-bottom: 0;
-        }
-
-        .response-timer {
-            background-color: #dc3545;
-            color: white;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-            text-align: center;
-            font-weight: bold;
-        }
-
-        .settings-panel {
-            margin-top: 20px;
-            border-top: 1px solid #dee2e6;
-            padding-top: 20px;
-        }
-
-        .settings-content {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 15px;
-        }
-
-        .setting-item {
-            margin-bottom: 15px;
-        }
-
-        .setting-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .setting-item label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        .setting-item select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-        }
-
-        .checkbox-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .checkbox-group label {
-            font-weight: normal;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
+    
+    <!-- Theme Initialization -->
+    <script>
+        const theme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+    </script>
 </head>
 <body>
     <div class="container">
+        <!-- Map Container -->
         <div id="map"></div>
+
+        <!-- Main Control Panel -->
         <div class="control-panel">
-            <h2>Triple Zero Dispatch</h2>
+            <header>
+                <h1>Triple Zero Dispatch</h1>
+                <nav>
+                    <a href="policy.html" target="_blank">Policy & Terms</a>
+                    <a href="code_viewer.html" target="_blank">View Code</a>
+                </nav>
+            </header>
+
+            <!-- Funds Display -->
             <div class="funds-display">
                 <h3>Available Funds</h3>
                 <div id="funds">10000</div>
             </div>
 
+            <!-- Building Placement Section -->
             <div class="building-placement">
                 <h3>Build Facilities</h3>
                 <div class="shop-items">
@@ -214,6 +69,7 @@
                 </div>
             </div>
 
+            <!-- Vehicle Shop Section -->
             <div class="vehicle-shop">
                 <h3>Vehicle Shop</h3>
                 <div class="shop-items">
@@ -240,15 +96,50 @@
                     <div class="shop-item">
                         <h4>SES Transport Vehicle</h4>
                         <p>Cost: $2000</p>
-                        <p style="color: #666; font-size: 0.9em;">Equipment transport only - Not for emergency response</p>
+                        <p class="note">Equipment transport only - Not for emergency response</p>
                         <button class="button" onclick="purchaseVehicle('SES_TRANSPORT')">Purchase</button>
                     </div>
                 </div>
             </div>
+
+            <!-- Unit Management Section -->
             <div class="unit-list">
                 <h3>Emergency Units</h3>
                 <div id="units"></div>
+                <div class="unit-actions">
+                    <button class="button" onclick="showUnitDetails()">View Details</button>
+                    <button class="button warning" onclick="showRefundOptions()">Sell/Refund</button>
+                </div>
             </div>
+
+            <!-- Season Pass Section -->
+            <div class="season-pass-panel">
+                <h3>Season Pass</h3>
+                <div class="season-content">
+                    <div id="seasonStatus">Season 1</div>
+                    <div class="progress-bar">
+                        <div id="seasonProgress" style="width: 0%"></div>
+                    </div>
+                    <button class="button premium" onclick="activateSeasonPass()">Activate Season Pass</button>
+                    <div id="seasonRewards"></div>
+                </div>
+            </div>
+
+            <!-- Recruitment Section -->
+            <div class="recruitment-panel">
+                <h3>Recruitment Center</h3>
+                <div id="availableRecruits" class="recruits-list"></div>
+                <button class="button" onclick="generateNewRecruits()">Find Recruits</button>
+            </div>
+
+            <!-- Training Section -->
+            <div class="training-panel">
+                <h3>Training Programs</h3>
+                <div id="trainingPrograms" class="programs-list"></div>
+                <div id="activeTraining" class="active-training"></div>
+            </div>
+
+            <!-- Incident List Section -->
             <div class="incident-list">
                 <h3>Available Missions</h3>
                 <div class="mission-panel">
@@ -261,11 +152,13 @@
                 </div>
                 <div id="incidents"></div>
             </div>
+
+            <!-- Settings Panel -->
             <div class="settings-panel">
                 <h3>Settings</h3>
                 <div class="settings-content">
                     <div class="setting-item">
-                        <label>Simulation Speed</label>
+                        <label for="simSpeed">Simulation Speed</label>
                         <select id="simSpeed" onchange="updateSimulationSpeed()">
                             <option value="0.5">Slow</option>
                             <option value="1" selected>Normal</option>
@@ -281,19 +174,24 @@
                         </div>
                     </div>
                     <div class="setting-item">
-                        <label>Map Style</label>
+                        <label for="mapStyle">Map Style</label>
                         <select id="mapStyle" onchange="updateMapStyle()">
                             <option value="default" selected>Default</option>
                             <option value="satellite">Satellite</option>
-                            <option value="dark">Dark Mode</option>
+                            <option value="dark">Dark</option>
                         </select>
                     </div>
                     <div class="setting-item">
-                        <label>Legal</label>
-                        <a href="policy.html" target="_blank" style="color: #007bff; text-decoration: none;">Game Policy & Terms of Service</a>
+                        <label for="themeSelect">Theme</label>
+                        <select id="themeSelect" onchange="updateTheme()">
+                            <option value="light">Light Mode</option>
+                            <option value="dark">Dark Mode</option>
+                        </select>
                     </div>
                 </div>
             </div>
+
+            <!-- Message Feed Section -->
             <div class="message-panel">
                 <h3>Message Feed</h3>
                 <div id="messages" class="messages"></div>
@@ -301,8 +199,10 @@
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="audio.js"></script>
-    <script src="script.js"></script>
+    <script src="game_systems.js" type="module"></script>
+    <script src="audio.js" type="module"></script>
+    <script src="script.js" type="module"></script>
 </body>
 </html>

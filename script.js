@@ -14,12 +14,30 @@ const MAP_STYLES = {
     }
 };
 
-// Global state for building placement
+// Import game systems
+import { RefundSystem, SeasonPass, RecruitmentSystem, TrainingProgram } from './game_systems.js';
+
+// Initialize game systems
+let seasonPass, recruitmentSystem, trainingProgram;
+
+// Initialize systems after DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    seasonPass = new SeasonPass();
+    recruitmentSystem = new RecruitmentSystem();
+    trainingProgram = new TrainingProgram();
+});
+
+// Global state
 let placementMode = false;
 let selectedBuildingType = null;
 
 // Load saved game state when the page loads
-window.addEventListener('load', loadGameState);
+window.addEventListener('load', () => {
+    loadGameState();
+    updateSeasonPassUI();
+    generateNewRecruits();
+    updateTrainingProgramsUI();
+});
 
 // Initialize the map centered on Sydney, Australia with proper configuration
 const map = L.map('map', {
@@ -29,34 +47,113 @@ const map = L.map('map', {
     maxZoom: 18,
     maxBounds: [[-90, -180], [90, 180]], // Restrict map bounds to world coordinates
     zoomControl: true,
-    attributionControl: true
+    attributionControl: true,
+    maxBoundsViscosity: 1.0, // Prevent map from moving outside bounds
+    bounceAtZoomLimits: true, // Bounce back when reaching zoom limits
+    worldCopyJump: true // Enables seamless horizontal scrolling
 });
 
-// Add click handler for building placement
+// Add click handler for building placement with validation
 map.on('click', function(e) {
     if (placementMode && selectedBuildingType) {
         const position = [e.latlng.lat, e.latlng.lng];
+        
+        // Validate minimum distance from other buildings
+        const MIN_DISTANCE = 0.01; // roughly 1km
+        const isTooClose = buildings.some(building => {
+            const distance = map.distance(position, building.position);
+            return distance < MIN_DISTANCE * 1000; // convert to meters
+        });
+        
+        if (isTooClose) {
+            addMessage('PLACEMENT', 'Buildings must be placed further apart');
+            return;
+        }
+        
+        // Validate building cost
+        const buildingCost = BUILDING_TYPES[selectedBuildingType].cost || 5000;
+        if (funds < buildingCost) {
+            addMessage('PLACEMENT', 'Insufficient funds for building placement');
+            return;
+        }
+        
+        // Add building and deduct cost
         addBuilding(selectedBuildingType, position);
+        funds -= buildingCost;
+        updateFundsDisplay();
+        
         // Exit placement mode after placing building
         placementMode = false;
         selectedBuildingType = null;
         map.getContainer().style.cursor = '';
+        addMessage('PLACEMENT', `${BUILDING_TYPES[selectedBuildingType].name} placed successfully`);
     }
 });
 
-// Add default OpenStreetMap tiles with error handling
+// Add mousemove handler for placement preview
+map.on('mousemove', function(e) {
+    if (placementMode && selectedBuildingType) {
+        map.getContainer().style.cursor = 'crosshair';
+    }
+});
+
+// Add default OpenStreetMap tiles with enhanced error handling and caching
 let currentTileLayer = L.tileLayer(MAP_STYLES.default.url, {
     attribution: MAP_STYLES.default.attribution,
     maxZoom: 18,
     minZoom: 3,
     errorTileUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-grey.png',
-    crossOrigin: true
+    crossOrigin: true,
+    updateWhenIdle: true,
+    updateWhenZooming: false,
+    keepBuffer: 4,
+    maxNativeZoom: 19,
+    detectRetina: true,
+    subdomains: 'abc',
+    tileSize: 256,
+    zoomOffset: 0,
+    retryOnError: true
 }).addTo(map);
 
-// Handle tile loading errors
+// Enhanced tile loading error handling with exponential backoff
+let retryCount = {};
+let tileCache = new Map();
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000;
+
 currentTileLayer.on('tileerror', function(error) {
-    console.warn('Failed to load map tile:', error);
+    const tileUrl = error.tile.src;
+    retryCount[tileUrl] = (retryCount[tileUrl] || 0) + 1;
+    
+    if (retryCount[tileUrl] <= MAX_RETRIES) {
+        const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount[tileUrl] - 1);
+        console.warn(`Retrying failed tile (${retryCount[tileUrl]}/${MAX_RETRIES}) after ${delay}ms:`, tileUrl);
+        
+        setTimeout(() => {
+            if (tileCache.has(tileUrl)) {
+                error.tile.src = tileCache.get(tileUrl);
+            } else {
+                error.tile.src = tileUrl;
+            }
+        }, delay);
+    } else {
+        console.error('Failed to load map tile after max retries:', tileUrl);
+        delete retryCount[tileUrl];
+    }
 });
+
+// Cache successful tile loads
+currentTileLayer.on('tileload', function(event) {
+    const tileUrl = event.tile.src;
+    tileCache.set(tileUrl, tileUrl);
+    delete retryCount[tileUrl];
+});
+
+// Clear tile cache when changing map styles
+function clearTileCache() {
+    tileCache.clear();
+    retryCount = {};
+}
 
 // Simulation speed multiplier
 let simulationSpeedMultiplier = 1;
@@ -88,14 +185,52 @@ function updateMapStyle() {
     });
 }
 
-// Check notification settings before adding message
+// Theme management
+function updateTheme() {
+    const theme = document.getElementById('themeSelect').value;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+}
+
+// Browser notification permission
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.warn('This browser does not support notifications');
+        return;
+    }
+
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            console.log('Notification permission granted');
+        }
+    } catch (error) {
+        console.error('Error requesting notification permission:', error);
+    }
+}
+
+// Check notification settings and show browser notification if enabled
 function shouldShowNotification(type) {
     const notificationSettings = {
         DISPATCH: document.getElementById('notifyDispatch').checked,
         ARRIVAL: document.getElementById('notifyArrival').checked,
         COMPLETION: document.getElementById('notifyCompletion').checked
     };
+
+    if (notificationSettings[type] && Notification.permission === 'granted') {
+        return true;
+    }
     return notificationSettings[type];
+}
+
+// Show browser notification
+function showBrowserNotification(title, body) {
+    if (Notification.permission === 'granted') {
+        new Notification(title, {
+            body: body,
+            icon: '/favicon.ico'
+        });
+    }
 }
 
 // Store units, incidents, buildings, messages and game state
@@ -109,6 +244,173 @@ let funds = 10000;
 
 // Autosave configuration
 const AUTOSAVE_INTERVAL = 60000; // Save every minute
+
+// UI Functions for new features
+function showUnitDetails() {
+    const selectedUnit = units.find(unit => unit.selected);
+    if (selectedUnit) {
+        const message = `Unit Details:\n` +
+            `Type: ${selectedUnit.type}\n` +
+            `Status: ${selectedUnit.status}\n` +
+            `Position: ${selectedUnit.position.map(coord => coord.toFixed(4)).join(', ')}`;
+        alert(message);
+    } else {
+        alert('Please select a unit to view details');
+    }
+}
+
+function showRefundOptions() {
+    const selectedUnit = units.find(unit => unit.selected);
+    if (selectedUnit) {
+        const refundAmount = RefundSystem.calculateRefund('vehicle', getVehicleCost(selectedUnit.type));
+        if (confirm(`Sell ${selectedUnit.type} for $${refundAmount}?`)) {
+            funds += refundAmount;
+            selectedUnit.marker.remove();
+            units = units.filter(unit => unit !== selectedUnit);
+            updateFundsDisplay();
+            addMessage(`Sold ${selectedUnit.type} for $${refundAmount}`);
+        }
+    } else {
+        alert('Please select a unit to refund');
+    }
+}
+
+function activateSeasonPass() {
+    if (!seasonPass.isActive) {
+        const cost = 5000;
+        if (funds >= cost) {
+            funds -= cost;
+            seasonPass.activatePass();
+            updateFundsDisplay();
+            updateSeasonPassUI();
+            addMessage('Season Pass activated!');
+        } else {
+            alert('Insufficient funds to activate Season Pass');
+        }
+    }
+}
+
+function updateSeasonPassUI() {
+    const statusElement = document.getElementById('seasonStatus');
+    const progressElement = document.getElementById('seasonProgress');
+    const rewardsElement = document.getElementById('seasonRewards');
+
+    if (seasonPass.isActive) {
+        statusElement.textContent = `Season ${seasonPass.currentSeason} - Active`;
+        progressElement.style.width = `${seasonPass.seasonProgress}%`;
+        
+        rewardsElement.innerHTML = seasonPass.rewards
+            .map(reward => `<div class="reward-item">${reward.description} - ${reward.amount}</div>`)
+            .join('');
+    } else {
+        statusElement.textContent = 'Season Pass Inactive';
+        progressElement.style.width = '0%';
+        rewardsElement.innerHTML = '<div class="reward-item">Activate pass to view rewards</div>';
+    }
+}
+
+function generateNewRecruits() {
+    const recruitsContainer = document.getElementById('availableRecruits');
+    recruitsContainer.innerHTML = '';
+    
+    for (let i = 0; i < 3; i++) {
+        const recruit = recruitmentSystem.generateRecruits();
+        const recruitElement = document.createElement('div');
+        recruitElement.className = 'recruit-card';
+        recruitElement.innerHTML = `
+            <div>
+                <strong>${recruit.name}</strong><br>
+                ${recruit.specialty} - Exp: ${recruit.experience}
+            </div>
+            <button class="button" onclick="hireRecruit(${recruit.id})">Hire ($${recruit.cost})</button>
+        `;
+        recruitsContainer.appendChild(recruitElement);
+    }
+}
+
+function hireRecruit(recruitId) {
+    const recruit = recruitmentSystem.availableRecruits.find(r => r.id === recruitId);
+    if (recruit && funds >= recruit.cost) {
+        funds -= recruit.cost;
+        const hired = recruitmentSystem.hireRecruit(recruitId);
+        if (hired) {
+            updateFundsDisplay();
+            generateNewRecruits();
+            addMessage(`Hired ${hired.name} as ${hired.specialty} specialist`);
+        }
+    } else {
+        alert('Insufficient funds to hire recruit');
+    }
+}
+
+function updateTrainingProgramsUI() {
+    const programsContainer = document.getElementById('trainingPrograms');
+    programsContainer.innerHTML = '';
+    
+    trainingProgram.programs.forEach(program => {
+        const programElement = document.createElement('div');
+        programElement.className = 'program-card';
+        programElement.innerHTML = `
+            <div>
+                <strong>${program.name}</strong><br>
+                Duration: ${program.duration} days<br>
+                Skill Increase: +${program.skillIncrease}
+            </div>
+            <button class="button" onclick="startTrainingProgram('${program.id}')">Start ($${program.cost})</button>
+        `;
+        programsContainer.appendChild(programElement);
+    });
+}
+
+function startTrainingProgram(programId) {
+    const selectedStaff = recruitmentSystem.hiredStaff.find(staff => !trainingProgram.activeTraining.has(staff.id));
+    if (!selectedStaff) {
+        alert('No available staff for training');
+        return;
+    }
+
+    const program = trainingProgram.programs.find(p => p.id === programId);
+    if (program && funds >= program.cost) {
+        funds -= program.cost;
+        if (trainingProgram.startTraining(selectedStaff.id, programId)) {
+            updateFundsDisplay();
+            addMessage(`Started ${program.name} training for ${selectedStaff.name}`);
+            updateActiveTrainingUI();
+        }
+    } else {
+        alert('Insufficient funds for training program');
+    }
+}
+
+function updateActiveTrainingUI() {
+    const activeTrainingContainer = document.getElementById('activeTraining');
+    activeTrainingContainer.innerHTML = '';
+    
+    trainingProgram.activeTraining.forEach((training, staffId) => {
+        const staff = recruitmentSystem.hiredStaff.find(s => s.id === staffId);
+        if (staff) {
+            const timeRemaining = Math.ceil((training.endDate - new Date()) / (1000 * 60 * 60 * 24));
+            const element = document.createElement('div');
+            element.innerHTML = `
+                <strong>${staff.name}</strong> - ${training.program.name}<br>
+                Time Remaining: ${timeRemaining} days
+            `;
+            activeTrainingContainer.appendChild(element);
+        }
+    });
+}
+
+// Helper function to get vehicle cost
+function getVehicleCost(vehicleType) {
+    const costs = {
+        'AMBULANCE': 2000,
+        'FIRE_TRUCK': 3000,
+        'POLICE_CAR': 1500,
+        'SES_TRUCK': 2500,
+        'SES_TRANSPORT': 2000
+    };
+    return costs[vehicleType] || 0;
+}
 
 // Save game state to localStorage
 function saveGameState() {
@@ -128,7 +430,15 @@ function saveGameState() {
         })),
         funds: funds,
         unitCounter: unitCounter,
-        incidentCounter: incidentCounter
+        incidentCounter: incidentCounter,
+        seasonPass: {
+            currentSeason: seasonPass.currentSeason,
+            seasonProgress: seasonPass.seasonProgress,
+            isActive: seasonPass.isActive,
+            endDate: seasonPass.endDate
+        },
+        hiredStaff: recruitmentSystem.hiredStaff,
+        activeTraining: Array.from(trainingProgram.activeTraining.entries())
     };
     localStorage.setItem('emergencyDispatchState', JSON.stringify(gameState));
     console.log('Game state saved:', new Date().toLocaleTimeString());
@@ -139,6 +449,31 @@ function loadGameState() {
     const savedState = localStorage.getItem('emergencyDispatchState');
     if (savedState) {
         const gameState = JSON.parse(savedState);
+        
+        // Load season pass state
+        if (gameState.seasonPass) {
+            seasonPass.currentSeason = gameState.seasonPass.currentSeason;
+            seasonPass.seasonProgress = gameState.seasonPass.seasonProgress;
+            seasonPass.isActive = gameState.seasonPass.isActive;
+            seasonPass.endDate = gameState.seasonPass.endDate ? new Date(gameState.seasonPass.endDate) : null;
+        }
+        
+        // Load recruitment state
+        if (gameState.hiredStaff) {
+            recruitmentSystem.hiredStaff = gameState.hiredStaff;
+        }
+        
+        // Load training state
+        if (gameState.activeTraining) {
+            trainingProgram.activeTraining = new Map(gameState.activeTraining.map(([id, training]) => [
+                id,
+                {
+                    ...training,
+                    startDate: new Date(training.startDate),
+                    endDate: new Date(training.endDate)
+                }
+            ]));
+        }
         
         // Clear existing state
         units.forEach(unit => unit.marker.remove());
@@ -208,29 +543,80 @@ function addMessage(type, content) {
     messages.unshift(message);
     if (messages.length > 50) messages.pop(); // Keep only last 50 messages
     updateMessagePanel();
+
+    // Play sound effect based on message type
+    playSound(type);
+
+    // Show browser notification if enabled
+    if (Notification.permission === 'granted') {
+        showBrowserNotification(
+            `${messageConfig.icon} ${type}`,
+            content
+        );
+    }
+
+    // Create and show temporary notification element
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.innerHTML = `${messageConfig.icon} ${content}`;
+    document.body.appendChild(notification);
+
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
-// Update the message panel in the UI
+// Update the message panel in the UI with enhanced status indicators
 function updateMessagePanel() {
     const messagesDiv = document.getElementById('messages');
     messagesDiv.innerHTML = messages.map(message => {
         const config = MESSAGE_TYPES[message.type];
+        const statusColor = message.type === 'DISPATCH' ? STATUS_COLORS.RESPONDING :
+                           message.type === 'ARRIVAL' ? STATUS_COLORS.ON_SCENE :
+                           message.type === 'COMPLETION' ? STATUS_COLORS.IDLE :
+                           config.color;
         return `
-            <div class="message" style="border-left-color: ${config.color};">
+            <div class="message" style="border-left-color: ${statusColor};">
                 <small>${message.timestamp}</small><br>
                 ${config.icon} ${message.content}
+                ${message.type === 'DISPATCH' ? '<span class="response-time">Response Time: Calculating...</span>' : ''}
             </div>
         `;
     }).join('');
+
+    // Update unit status indicators
+    units.forEach(unit => {
+        if (unit.marker && unit.marker._icon) {
+            unit.marker._icon.style.backgroundColor = STATUS_COLORS[unit.status] || STATUS_COLORS.IDLE;
+        }
+    });
 }
 
-// Vehicle costs
+// Vehicle costs and status definitions
 const VEHICLE_COSTS = {
     AMBULANCE: 2000,
     FIRE_TRUCK: 3000,
     POLICE_CAR: 1500,
     SES_TRUCK: 2500,
     SES_TRANSPORT: 2000
+};
+
+const UNIT_STATUS = {
+    IDLE: 'IDLE',
+    RESPONDING: 'RESPONDING',
+    ON_SCENE: 'ON_SCENE',
+    RETURNING: 'RETURNING',
+    UNAVAILABLE: 'UNAVAILABLE'
+};
+
+const STATUS_COLORS = {
+    IDLE: '#28a745',
+    RESPONDING: '#dc3545',
+    ON_SCENE: '#ffc107',
+    RETURNING: '#17a2b8',
+    UNAVAILABLE: '#6c757d'
 };
 
 // Building types and their configurations

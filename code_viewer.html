@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Viewer - Triple Zero Dispatch Simulator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .nav {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .nav a {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .nav a:hover {
+            background-color: #0056b3;
+        }
+        .code-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        pre {
+            margin: 0;
+            border-radius: 4px;
+        }
+        .back-button {
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button nav">Back to Simulator</a>
+        
+        <div class="nav">
+            <a href="#script">script.js</a>
+            <a href="#game-systems">game_systems.js</a>
+            <a href="#audio">audio.js</a>
+        </div>
+
+        <div id="script" class="code-section">
+            <h2>script.js</h2>
+            <pre><code class="language-javascript">
+// Content will be loaded via JavaScript
+            </code></pre>
+        </div>
+
+        <div id="game-systems" class="code-section">
+            <h2>game_systems.js</h2>
+            <pre><code class="language-javascript">
+// Game Systems Module
+
+// Game Systems Module
+const REFUND_RATES = {
+    BUILDINGS: 0.7, // 70% refund for buildings
+    VEHICLES: 0.5  // 50% refund for vehicles
+};
+
+export class RefundSystem {
+    static calculateRefund(type, originalCost) {
+        const rate = type === 'building' ? REFUND_RATES.BUILDINGS : REFUND_RATES.VEHICLES;
+        return Math.floor(originalCost * rate);
+    }
+}
+
+// Season Pass System
+export class SeasonPass {
+    constructor() {
+        this.currentSeason = 1;
+        this.seasonProgress = 0;
+        this.rewards = [];
+        this.specialMissions = [];
+        this.isActive = false;
+        this.endDate = null;
+    }
+
+    activatePass(durationDays = 30) {
+        this.isActive = true;
+        this.endDate = new Date();
+        this.endDate.setDate(this.endDate.getDate() + durationDays);
+        this.initializeSeasonContent();
+    }
+
+    initializeSeasonContent() {
+        this.specialMissions = [
+            {
+                id: 'S1_M1',
+                title: 'Multi-Agency Response',
+                description: 'Coordinate multiple emergency services for a major incident',
+                reward: 1000,
+                progressNeeded: 100
+            }
+        ];
+
+        this.rewards = [
+            {
+                level: 1,
+                type: 'currency',
+                amount: 500,
+                description: 'Season Bonus'
+            }
+        ];
+    }
+}
+
+// And more code...
+            </code></pre>
+        </div>
+
+        <div id="audio" class="code-section">
+            <h2>audio.js</h2>
+            <pre><code class="language-javascript">
+// Sound effects for the game
+const AUDIO = {
+    EMERGENCY_CALL: new Audio('data:audio/wav;base64,...'),
+    DISPATCH: new Audio('data:audio/wav;base64,...'),
+    ARRIVAL: new Audio('data:audio/wav;base64,...'),
+    COMPLETION: new Audio('data:audio/wav;base64,...')
+};
+
+// Play sound effects based on event type
+function playSound(type) {
+    const audio = AUDIO[type];
+    if (audio) {
+        audio.currentTime = 0; // Reset audio to start
+        audio.play().catch(error => console.log('Audio playback failed:', error));
+    }
+}
+            </code></pre>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-javascript.min.js"></script>
+</body>
+</html>
