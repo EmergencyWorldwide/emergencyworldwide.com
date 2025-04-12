@@ -3,206 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Triple Zero Dispatch Simulator - Emergency Response Management Game">
     <title>Triple Zero Dispatch Simulator</title>
-    
-    <!-- External CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css" />
-    
-    <!-- Theme Initialization -->
-    <script>
-        const theme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', theme);
-    </script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            touch-action: manipulation;
+        }
+        #container {
+            display: flex;
+            height: 100%;
+            flex-direction: row;
+        }
+        #sidebar {
+            width: 300px;
+            background: #f0f0f0;
+            padding: 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #map {
+            flex-grow: 1;
+            height: 100%;
+            touch-action: pan-x pan-y;
+        }
+        .asset-item {
+            background: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .asset-item button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            width: 100%;
+            touch-action: manipulation;
+        }
+        .asset-item button:hover {
+            background: #45a049;
+        }
+        #funds {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 8px;
+        }
+        @media (max-width: 768px) {
+            #container {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: auto;
+                max-height: 40%;
+            }
+            #map {
+                height: 60%;
+            }
+            .asset-item {
+                padding: 12px;
+                margin: 8px 0;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Map Container -->
-        <div id="map"></div>
-
-        <!-- Main Control Panel -->
-        <div class="control-panel">
-            <header>
-                <h1>Triple Zero Dispatch</h1>
-                <nav>
-                    <a href="policy.html" target="_blank">Policy & Terms</a>
-                    <a href="code_viewer.html" target="_blank">View Code</a>
-                </nav>
-            </header>
-
-            <!-- Funds Display -->
-            <div class="funds-display">
-                <h3>Available Funds</h3>
-                <div id="funds">10000</div>
-            </div>
-
-            <!-- Building Placement Section -->
-            <div class="building-placement">
-                <h3>Build Facilities</h3>
-                <div class="shop-items">
-                    <div class="shop-item">
-                        <h4>Medical Facilities</h4>
-                        <button class="button" onclick="startBuildingPlacement('HOSPITAL')">Build Hospital ($5000)</button>
-                        <button class="button" onclick="startBuildingPlacement('MEDICAL_CENTER')">Build Medical Center ($3000)</button>
-                    </div>
-                    <div class="shop-item">
-                        <h4>Fire Services</h4>
-                        <button class="button" onclick="startBuildingPlacement('FIRE_STATION')">Build Fire Station ($4000)</button>
-                        <button class="button" onclick="startBuildingPlacement('FIRE_SUBSTATION')">Build Fire Substation ($2500)</button>
-                    </div>
-                    <div class="shop-item">
-                        <h4>Police Services</h4>
-                        <button class="button" onclick="startBuildingPlacement('POLICE_STATION')">Build Police Station ($4000)</button>
-                        <button class="button" onclick="startBuildingPlacement('POLICE_OUTPOST')">Build Police Outpost ($2500)</button>
-                    </div>
-                    <div class="shop-item">
-                        <h4>SES Facilities</h4>
-                        <button class="button" onclick="startBuildingPlacement('SES_HQ')">Build SES Headquarters ($4500)</button>
-                        <button class="button" onclick="startBuildingPlacement('SES_UNIT')">Build SES Unit ($2500)</button>
-                    </div>
-                    <div class="shop-item">
-                        <h4>Support Facilities</h4>
-                        <button class="button" onclick="startBuildingPlacement('COMMAND_CENTER')">Build Command Center ($6000)</button>
-                        <button class="button" onclick="startBuildingPlacement('TRAINING_FACILITY')">Build Training Facility ($3500)</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Vehicle Shop Section -->
-            <div class="vehicle-shop">
-                <h3>Vehicle Shop</h3>
-                <div class="shop-items">
-                    <div class="shop-item">
-                        <h4>Ambulance</h4>
-                        <p>Cost: $2000</p>
-                        <button class="button" onclick="purchaseVehicle('AMBULANCE')">Purchase</button>
-                    </div>
-                    <div class="shop-item">
-                        <h4>Fire Truck</h4>
-                        <p>Cost: $3000</p>
-                        <button class="button" onclick="purchaseVehicle('FIRE_TRUCK')">Purchase</button>
-                    </div>
-                    <div class="shop-item">
-                        <h4>Police Car</h4>
-                        <p>Cost: $1500</p>
-                        <button class="button" onclick="purchaseVehicle('POLICE_CAR')">Purchase</button>
-                    </div>
-                    <div class="shop-item">
-                        <h4>SES Response Vehicle</h4>
-                        <p>Cost: $2500</p>
-                        <button class="button" onclick="purchaseVehicle('SES_TRUCK')">Purchase</button>
-                    </div>
-                    <div class="shop-item">
-                        <h4>SES Transport Vehicle</h4>
-                        <p>Cost: $2000</p>
-                        <p class="note">Equipment transport only - Not for emergency response</p>
-                        <button class="button" onclick="purchaseVehicle('SES_TRANSPORT')">Purchase</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Unit Management Section -->
-            <div class="unit-list">
-                <h3>Emergency Units</h3>
-                <div id="units"></div>
-                <div class="unit-actions">
-                    <button class="button" onclick="showUnitDetails()">View Details</button>
-                    <button class="button warning" onclick="showRefundOptions()">Sell/Refund</button>
-                </div>
-            </div>
-
-            <!-- Season Pass Section -->
-            <div class="season-pass-panel">
-                <h3>Season Pass</h3>
-                <div class="season-content">
-                    <div id="seasonStatus">Season 1</div>
-                    <div class="progress-bar">
-                        <div id="seasonProgress" style="width: 0%"></div>
-                    </div>
-                    <button class="button premium" onclick="activateSeasonPass()">Activate Season Pass</button>
-                    <div id="seasonRewards"></div>
-                </div>
-            </div>
-
-            <!-- Recruitment Section -->
-            <div class="recruitment-panel">
-                <h3>Recruitment Center</h3>
-                <div id="availableRecruits" class="recruits-list"></div>
-                <button class="button" onclick="generateNewRecruits()">Find Recruits</button>
-            </div>
-
-            <!-- Training Section -->
-            <div class="training-panel">
-                <h3>Training Programs</h3>
-                <div id="trainingPrograms" class="programs-list"></div>
-                <div id="activeTraining" class="active-training"></div>
-            </div>
-
-            <!-- Incident List Section -->
-            <div class="incident-list">
-                <h3>Available Missions</h3>
-                <div class="mission-panel">
-                    <div class="shop-item">
-                        <h4>🔥 Bushfire Emergency</h4>
-                        <p>Reward: $334</p>
-                        <p>A bushfire is threatening nearby properties. Fire truck response required!</p>
-                        <button class="button emergency" onclick="startBushfireMission()">Accept Mission</button>
-                    </div>
-                </div>
-                <div id="incidents"></div>
-            </div>
-
-            <!-- Settings Panel -->
-            <div class="settings-panel">
-                <h3>Settings</h3>
-                <div class="settings-content">
-                    <div class="setting-item">
-                        <label for="simSpeed">Simulation Speed</label>
-                        <select id="simSpeed" onchange="updateSimulationSpeed()">
-                            <option value="0.5">Slow</option>
-                            <option value="1" selected>Normal</option>
-                            <option value="2">Fast</option>
-                        </select>
-                    </div>
-                    <div class="setting-item">
-                        <label>Notifications</label>
-                        <div class="checkbox-group">
-                            <label><input type="checkbox" id="notifyDispatch" checked> Dispatch</label>
-                            <label><input type="checkbox" id="notifyArrival" checked> Arrival</label>
-                            <label><input type="checkbox" id="notifyCompletion" checked> Completion</label>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <label for="mapStyle">Map Style</label>
-                        <select id="mapStyle" onchange="updateMapStyle()">
-                            <option value="default" selected>Default</option>
-                            <option value="satellite">Satellite</option>
-                            <option value="dark">Dark</option>
-                        </select>
-                    </div>
-                    <div class="setting-item">
-                        <label for="themeSelect">Theme</label>
-                        <select id="themeSelect" onchange="updateTheme()">
-                            <option value="light">Light Mode</option>
-                            <option value="dark">Dark Mode</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Message Feed Section -->
-            <div class="message-panel">
-                <h3>Message Feed</h3>
-                <div id="messages" class="messages"></div>
+    <div id="container">
+        <div id="sidebar">
+            <h2>Triple Zero Dispatch</h2>
+            <div id="funds">Available Funds: $1,000,000</div>
+            <h3>Emergency Assets</h3>
+            <div id="assets-list">
+                <!-- Assets will be populated here -->
             </div>
         </div>
+        <div id="map"></div>
     </div>
-
-    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="game_systems.js" type="module"></script>
-    <script src="audio.js" type="module"></script>
-    <script src="script.js" type="module"></script>
+    <script src="script.js"></script>
 </body>
 </html>
