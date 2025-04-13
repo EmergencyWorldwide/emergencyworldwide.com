@@ -4,93 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Triple Zero Dispatch Simulator</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, sans-serif;
-            touch-action: manipulation;
-        }
-        #container {
-            display: flex;
-            height: 100%;
-            flex-direction: row;
-        }
-        #sidebar {
-            width: 300px;
-            background: #f0f0f0;
+        body { margin: 0; padding: 0; }
+        #map { height: 70vh; width: 100%; }
+        .control-panel {
             padding: 20px;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            background: #f5f5f5;
         }
-        #map {
-            flex-grow: 1;
-            height: 100%;
-            touch-action: pan-x pan-y;
+        .assets {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
         }
-        .asset-item {
+        .asset-card {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
             background: white;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .asset-item button {
+        .buy-button {
             background: #4CAF50;
             color: white;
             border: none;
-            padding: 12px 20px;
-            border-radius: 6px;
+            padding: 8px 16px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            margin-top: 10px;
-            width: 100%;
-            touch-action: manipulation;
         }
-        .asset-item button:hover {
+        .buy-button:hover {
             background: #45a049;
-        }
-        #funds {
-            font-size: 1.4em;
-            font-weight: bold;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #fff;
-            border-radius: 8px;
-        }
-        @media (max-width: 768px) {
-            #container {
-                flex-direction: column;
-            }
-            #sidebar {
-                width: auto;
-                max-height: 40%;
-            }
-            #map {
-                height: 60%;
-            }
-            .asset-item {
-                padding: 12px;
-                margin: 8px 0;
-            }
         }
     </style>
 </head>
 <body>
-    <div id="container">
-        <div id="sidebar">
-            <h2>Triple Zero Dispatch</h2>
-            <div id="funds">Available Funds: $1,000,000</div>
-            <h3>Emergency Assets</h3>
-            <div id="assets-list">
-                <!-- Assets will be populated here -->
+    <div id="map"></div>
+    
+    <div class="control-panel">
+        <h2>Emergency Assets</h2>
+        <div class="assets">
+            <div class="asset-card">
+                <h3>Ambulance Station</h3>
+                <p>Cost: $500,000</p>
+                <button class="buy-button" onclick="buyAsset('ambulance_station')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Fire Station</h3>
+                <p>Cost: $750,000</p>
+                <button class="buy-button" onclick="buyAsset('fire_station')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Police Station</h3>
+                <p>Cost: $600,000</p>
+                <button class="buy-button" onclick="buyAsset('police_station')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Ambulance Vehicle</h3>
+                <p>Cost: $100,000</p>
+                <button class="buy-button" onclick="buyAsset('ambulance')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Fire Truck</h3>
+                <p>Cost: $200,000</p>
+                <button class="buy-button" onclick="buyAsset('fire_truck')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Police Car</h3>
+                <p>Cost: $75,000</p>
+                <button class="buy-button" onclick="buyAsset('police_car')">Buy</button>
             </div>
         </div>
-        <div id="map"></div>
     </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

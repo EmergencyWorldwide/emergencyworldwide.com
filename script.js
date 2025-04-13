@@ -1,240 +1,356 @@
 let map;
 let markers = [];
-let funds = 1000000;
-let purchasedAssets = [];
-let activeMissions = [];
-
-const assets = {
-    buildings: [
-        { id: 'fire_station', name: 'Fire Station', cost: 200000, icon: '🏛️', missionTypes: ['fire'] },
-        { id: 'police_station', name: 'Police Station', cost: 180000, icon: '🏢', missionTypes: ['crime'] },
-        { id: 'hospital', name: 'Hospital', cost: 300000, icon: '🏥', missionTypes: ['medical'] },
-        { id: 'ses_station', name: 'SES Station', cost: 250000, icon: '🏗️', missionTypes: ['flood', 'storm'] }
-    ],
-    vehicles: [
-        { id: 'fire_truck', name: 'Fire Truck', cost: 100000, icon: '🚒', missionTypes: ['fire'] },
-        { id: 'police_car', name: 'Police Car', cost: 50000, icon: '🚓', missionTypes: ['crime'] },
-        { id: 'ambulance', name: 'Ambulance', cost: 75000, icon: '🚑', missionTypes: ['medical'] },
-        { id: 'ses_truck', name: 'SES Truck', cost: 80000, icon: '🚛', missionTypes: ['flood', 'storm'] }
-    ]
+let assets = {
+    funds: 2000000,
+    buildings: [],
+    vehicles: []
 };
 
+let missions = [];
 const missionTypes = {
-    fire: { icon: '🔥', name: 'Fire Emergency' },
-    crime: { icon: '🚨', name: 'Crime Incident' },
-    medical: { icon: '⚕️', name: 'Medical Emergency' },
-    flood: { icon: '💧', name: 'Flood Emergency' },
-    storm: { icon: '⛈️', name: 'Storm Emergency' }
+    medical: { icon: '🚨', requiredAsset: 'ambulance', description: 'Medical Emergency', reward: 50000 },
+    fire: { icon: '🔥', requiredAsset: 'fire_truck', description: 'Fire Emergency', reward: 75000 },
+    crime: { icon: '🚔', requiredAsset: 'police_car', description: 'Police Emergency', reward: 45000 },
+    rescue: { icon: '🆘', requiredAsset: 'ses_rescue', description: 'Rescue Operation', reward: 60000 }
 };
 
-// Initialize map
+let selectedVehicle = null;
+let selectedMission = null;
+
+// Generate a random mission
+function generateMission() {
+    if (assets.buildings.length === 0) return; // No buildings to generate missions for
+    
+    const missionTypeKeys = Object.keys(missionTypes);
+    const randomType = missionTypeKeys[Math.floor(Math.random() * missionTypeKeys.length)];
+    const randomBuilding = assets.buildings[Math.floor(Math.random() * assets.buildings.length)];
+    
+    // Create mission at a location near the building
+    const radius = 0.01; // Approximately 1km radius
+    const randomAngle = Math.random() * Math.PI * 2;
+    const lat = randomBuilding.position.lat + radius * Math.cos(randomAngle);
+    const lng = randomBuilding.position.lng + radius * Math.sin(randomAngle);
+    
+    const mission = {
+        type: randomType,
+        position: { lat, lng },
+        createdAt: Date.now(),
+        status: 'active',
+        marker: null,
+        assignedVehicle: null,
+        completionTime: null
+    };
+    
+    // Create marker for mission
+    const marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            html: missionTypes[randomType].icon,
+            className: 'mission-icon',
+            iconSize: [25, 25]
+        })
+    }).addTo(map);
+    
+    // Add click handler for mission details
+    marker.on('click', () => {
+        selectedMission = mission;
+        const details = `
+            <div style="padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0 0 10px 0; color: #333;">${missionTypes[randomType].description}</h3>
+                <p style="margin: 5px 0;"><strong>Location:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
+                <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: ${mission.status === 'active' ? '#ff9800' : '#4CAF50'};">${mission.status.charAt(0).toUpperCase() + mission.status.slice(1)}</span></p>
+                <p style="margin: 5px 0;"><strong>Required:</strong> ${missionTypes[randomType].requiredAsset.replace('_', ' ')}</p>
+                <p style="margin: 5px 0;"><strong>Reward:</strong> $${missionTypes[randomType].reward.toLocaleString()}</p>
+                ${mission.status === 'active' ? '<button onclick="dispatchVehicle()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Dispatch Vehicle</button>' : ''}
+            </div>
+        `;
+        L.popup()
+            .setLatLng([lat, lng])
+            .setContent(details)
+            .openOn(map);
+    });
+    
+    mission.marker = marker;
+    missions.push(mission);
+    
+    // Remove mission after 5 minutes if not completed
+    setTimeout(() => {
+        if (mission.status === 'active') {
+            map.removeLayer(marker);
+            missions = missions.filter(m => m !== mission);
+        }
+    }, 300000); // 5 minutes
+}
+
+// Start mission generation
+setInterval(generateMission, 60000); // Generate new mission every minute
+
+// Load saved state
+function loadSavedState() {
+    const savedState = localStorage.getItem('emergencySimState');
+    if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        assets.funds = parsedState.funds;
+        assets.buildings = [];
+        assets.vehicles = [];
+        
+        // Recreate markers from saved state
+        parsedState.buildings.forEach(b => {
+            window.selectedAsset = b.type;
+            placeAsset({ lat: b.position.lat, lng: b.position.lng });
+        });
+        parsedState.vehicles.forEach(v => {
+            window.selectedAsset = v.type;
+            placeAsset({ lat: v.position.lat, lng: v.position.lng });
+        });
+    }
+}
+
+// Save state
+function saveState() {
+    const state = {
+        funds: assets.funds,
+        buildings: assets.buildings.map(b => ({
+            type: b.type,
+            position: b.position
+        })),
+        vehicles: assets.vehicles.map(v => ({
+            type: v.type,
+            position: v.position
+        }))
+    };
+    localStorage.setItem('emergencySimState', JSON.stringify(state));
+}
+
+// Initialize the map
 function initMap() {
-    map = L.map('map', {
-        tap: true,
-        dragging: true,
-        touchZoom: true,
-        doubleClickZoom: true
-    }).setView([-33.8688, 151.2093], 13); // Sydney coordinates
+    map = L.map('map').setView([-33.8688, 151.2093], 13); // Sydney coordinates
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    map.on('click', onMapClick);
-    populateAssetsList();
-    updateFunds();
-    startMissionGeneration();
-}
-
-// Handle map clicks for asset placement
-function onMapClick(e) {
-    if (window.selectedAsset) {
-        const asset = window.selectedAsset;
-        if (funds >= asset.cost) {
-            placeAsset(asset, e.latlng);
-            funds -= asset.cost;
-            updateFunds();
-        } else {
-            alert('Insufficient funds!');
+    // Add click event to map for placing buildings
+    map.on('click', function(e) {
+        if (window.selectedAsset) {
+            placeAsset(e.latlng);
         }
-        window.selectedAsset = null;
-    }
-}
-
-// Place asset on map
-function placeAsset(asset, latlng) {
-    const marker = L.marker(latlng, {
-        icon: L.divIcon({
-            html: asset.icon,
-            className: 'asset-marker',
-            iconSize: [40, 40]
-        })
-    }).addTo(map);
-
-    const purchasedAsset = {
-        ...asset,
-        marker: marker,
-        location: latlng,
-        status: 'available'
-    };
-
-    purchasedAssets.push(purchasedAsset);
-    markers.push(marker);
-
-    const handleAssetInteraction = () => {
-        if (purchasedAsset.status === 'available') {
-            const response = confirm(`Dispatch ${asset.name} to emergency?`);
-            if (response) {
-                dispatchAsset(purchasedAsset);
-            }
-        } else {
-            alert(`${asset.name} is currently ${purchasedAsset.status}`);
-        }
-    };
-
-    marker.on('click', handleAssetInteraction);
-    marker.on('touchend', (e) => {
-        L.DomEvent.preventDefault(e);
-        handleAssetInteraction();
     });
 }
 
-// Generate missions periodically
-function startMissionGeneration() {
-    setInterval(generateMission, 60000); // Generate mission every minute
-}
-
-function generateMission() {
-    const buildings = purchasedAssets.filter(asset => assets.buildings.some(b => b.id === asset.id));
-    if (buildings.length === 0) return;
-
-    const building = buildings[Math.floor(Math.random() * buildings.length)];
-    const missionType = building.missionTypes[Math.floor(Math.random() * building.missionTypes.length)];
-    const missionInfo = missionTypes[missionType];
-
-    // Generate mission within 1km of the building
-    const angle = Math.random() * Math.PI * 2;
-    const distance = Math.random() * 1000; // Up to 1km
-    const missionLat = building.location.lat + (distance * Math.cos(angle) / 111111);
-    const missionLng = building.location.lng + (distance * Math.sin(angle) / (111111 * Math.cos(building.location.lat)));
-
-    const missionMarker = L.marker([missionLat, missionLng], {
-        icon: L.divIcon({
-            html: missionInfo.icon,
-            className: 'mission-marker',
-            iconSize: [30, 30]
-        })
-    }).addTo(map);
-
-    const mission = {
-        type: missionType,
-        location: { lat: missionLat, lng: missionLng },
-        marker: missionMarker,
-        status: 'active',
-        building: building
+// Asset management
+function buyAsset(type) {
+    const costs = {
+        ambulance_station: 500000,
+        fire_station: 750000,
+        police_station: 600000,
+        ses_station: 450000,
+        ambulance: 100000,
+        fire_truck: 200000,
+        police_car: 75000,
+        ses_vehicle: 150000,
+        ses_rescue: 175000
     };
 
-    activeMissions.push(mission);
-    missionMarker.bindPopup(`${missionInfo.name} near ${building.name}`);
-
-    // Remove mission after 5 minutes if not responded to
-    setTimeout(() => {
-        if (mission.status === 'active') {
-            mission.marker.remove();
-            activeMissions = activeMissions.filter(m => m !== mission);
-        }
-    }, 300000);
-}
-
-// Dispatch asset to emergency
-function dispatchAsset(asset) {
-    const availableMissions = activeMissions.filter(m => 
-        m.status === 'active' && 
-        asset.missionTypes.includes(m.type)
-    );
-
-    if (availableMissions.length === 0) {
-        alert('No suitable missions available!');
-        return;
-    }
-
-    const mission = availableMissions[0];
-    asset.status = 'responding';
-    asset.marker.setOpacity(0.5);
-    mission.status = 'responding';
-    
-    // Draw response line
-    const line = L.polyline([asset.location, mission.location], {
-        color: '#ff0000',
-        dashArray: '10, 10'
-    }).addTo(map);
-
-    // Simulate response time
-    setTimeout(() => {
-        asset.status = 'available';
-        asset.marker.setOpacity(1);
-        mission.marker.remove();
-        line.remove();
-        activeMissions = activeMissions.filter(m => m !== mission);
-    }, 10000); // 10 seconds response time
-}
-
-// Update available funds display
-function updateFunds() {
-    document.getElementById('funds').textContent = `Available Funds: $${funds.toLocaleString()}`;
-}
-
-// Populate assets list in sidebar
-function populateAssetsList() {
-    const assetsList = document.getElementById('assets-list');
-    
-    // Add buildings
-    const buildingsSection = document.createElement('div');
-    buildingsSection.innerHTML = '<h4>Buildings</h4>';
-    assets.buildings.forEach(asset => {
-        buildingsSection.appendChild(createAssetElement(asset));
-    });
-    assetsList.appendChild(buildingsSection);
-
-    // Add vehicles
-    const vehiclesSection = document.createElement('div');
-    vehiclesSection.innerHTML = '<h4>Vehicles</h4>';
-    assets.vehicles.forEach(asset => {
-        vehiclesSection.appendChild(createAssetElement(asset));
-    });
-    assetsList.appendChild(vehiclesSection);
-}
-
-// Create asset element for sidebar
-function createAssetElement(asset) {
-    const div = document.createElement('div');
-    div.className = 'asset-item';
-    const button = document.createElement('button');
-    button.textContent = 'Purchase';
-    button.dataset.assetId = asset.id;
-    button.dataset.assetType = asset.cost >= 150000 ? 'buildings' : 'vehicles';
-    button.onclick = () => {
-        const assetType = button.dataset.assetType;
-        const assetId = button.dataset.assetId;
-        const selectedAsset = assets[assetType].find(a => a.id === assetId);
-        selectAsset(selectedAsset);
-    };
-    div.innerHTML = `
-        ${asset.icon} ${asset.name}<br>
-        Cost: $${asset.cost.toLocaleString()}
-    `;
-    div.appendChild(button);
-    return div;
-}
-
-// Select asset for placement
-function selectAsset(asset) {
-    if (funds >= asset.cost) {
-        window.selectedAsset = asset;
-        alert(`Click on the map to place ${asset.name}`);
+    if (assets.funds >= costs[type]) {
+        assets.funds -= costs[type];
+        window.selectedAsset = type;
+        alert(`Select a location on the map to place your ${type.replace('_', ' ')}`);
     } else {
         alert('Insufficient funds!');
     }
 }
 
-// Initialize the map when the page loads
-window.onload = initMap;
+// Place asset on map
+function placeAsset(latlng) {
+    const icons = {
+        ambulance_station: '🏥',
+        fire_station: '🚒',
+        police_station: '👮',
+        ses_station: '🏗️',
+        ambulance: '🚑',
+        fire_truck: '🚒',
+        police_car: '🚓',
+        ses_vehicle: '🚛',
+        ses_rescue: '🚁'
+    };
+
+    const marker = L.marker(latlng, {
+        icon: L.divIcon({
+            html: icons[window.selectedAsset],
+            className: 'asset-icon',
+            iconSize: [25, 25]
+        })
+    }).addTo(map);
+
+    // Add click handler for details
+    marker.on('click', () => {
+        const costs = {
+            ambulance_station: 500000,
+            fire_station: 750000,
+            police_station: 600000,
+            ses_station: 450000,
+            ambulance: 100000,
+            fire_truck: 200000,
+            police_car: 75000,
+            ses_vehicle: 150000,
+            ses_rescue: 175000
+        };
+        if (!window.selectedAsset && asset.type.indexOf('station') === -1) {
+            selectedVehicle = asset;
+            if (selectedMission && selectedMission.status === 'active') {
+                dispatchVehicle();
+            }
+        }
+        const details = `
+            <div style="padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0 0 10px 0; color: #333;">${asset.type.replace('_', ' ').toUpperCase()}</h3>
+                <p style="margin: 5px 0;"><strong>Type:</strong> ${asset.type.includes('station') ? 'Building' : 'Vehicle'}</p>
+                <p style="margin: 5px 0;"><strong>Cost:</strong> $${costs[asset.type].toLocaleString()}</p>
+                <p style="margin: 5px 0;"><strong>Location:</strong> ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}</p>
+                <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #4CAF50;">Active</span></p>
+                ${!asset.type.includes('station') ? '<button onclick="selectVehicle(asset)" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Select Vehicle</button>' : ''}
+            </div>
+        `;
+        L.popup()
+            .setLatLng(latlng)
+            .setContent(details)
+            .openOn(map);
+    });
+
+    const asset = {
+        type: window.selectedAsset,
+        position: latlng,
+        marker: marker
+    };
+
+    if (window.selectedAsset.includes('station')) {
+        assets.buildings.push(asset);
+    } else {
+        assets.vehicles.push(asset);
+    }
+
+    window.selectedAsset = null;
+    updateDisplay();
+    saveState();
+}
+
+// Update display
+function selectVehicle(vehicle) {
+    selectedVehicle = vehicle;
+    if (selectedMission && selectedMission.status === 'active') {
+        dispatchVehicle();
+    }
+}
+
+function dispatchVehicle() {
+    if (!selectedVehicle || !selectedMission || selectedMission.status !== 'active') return;
+    
+    if (selectedVehicle.type !== missionTypes[selectedMission.type].requiredAsset) {
+        alert('Wrong vehicle type for this mission!');
+        return;
+    }
+
+    selectedMission.status = 'in_progress';
+    selectedMission.assignedVehicle = selectedVehicle;
+
+    // Complete mission after 30 seconds
+    setTimeout(() => {
+        selectedMission.status = 'completed';
+        selectedMission.completionTime = Date.now();
+        
+        // Calculate reward based on response time
+        const responseTime = (selectedMission.completionTime - selectedMission.createdAt) / 1000; // in seconds
+        let reward = missionTypes[selectedMission.type].reward;
+        if (responseTime < 60) { // Bonus for quick response
+            reward *= 1.5;
+        }
+        
+        assets.funds += reward;
+        alert(`Mission completed! Earned $${reward.toLocaleString()}`);
+        updateDisplay();
+    }, 30000);
+
+    selectedVehicle = null;
+    selectedMission = null;
+    updateDisplay();
+}
+
+function updateDisplay() {
+    document.querySelector('.control-panel').innerHTML = `
+        <h2>Emergency Assets (Funds: $${assets.funds.toLocaleString()})</h2>
+        ${generateAssetsList()}
+        <h2>Active Missions</h2>
+        <div class="missions-list" style="padding: 20px;">
+            ${missions.map(mission => `
+                <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; background: white;">
+                    <h3>${missionTypes[mission.type].icon} ${missionTypes[mission.type].description}</h3>
+                    <p><strong>Location:</strong> ${mission.position.lat.toFixed(4)}, ${mission.position.lng.toFixed(4)}</p>
+                    <p><strong>Required:</strong> ${missionTypes[mission.type].requiredAsset.replace('_', ' ')}</p>
+                    <p><strong>Time:</strong> ${new Date(mission.createdAt).toLocaleTimeString()}</p>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Generate assets list HTML
+function generateAssetsList() {
+    return `
+        <div class="assets">
+            <div class="asset-card">
+                <h3>Ambulance Station</h3>
+                <p>Cost: $500,000</p>
+                <button class="buy-button" onclick="buyAsset('ambulance_station')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Fire Station</h3>
+                <p>Cost: $750,000</p>
+                <button class="buy-button" onclick="buyAsset('fire_station')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Police Station</h3>
+                <p>Cost: $600,000</p>
+                <button class="buy-button" onclick="buyAsset('police_station')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Ambulance Vehicle</h3>
+                <p>Cost: $100,000</p>
+                <button class="buy-button" onclick="buyAsset('ambulance')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Fire Truck</h3>
+                <p>Cost: $200,000</p>
+                <button class="buy-button" onclick="buyAsset('fire_truck')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>Police Car</h3>
+                <p>Cost: $75,000</p>
+                <button class="buy-button" onclick="buyAsset('police_car')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>SES Station</h3>
+                <p>Cost: $450,000</p>
+                <button class="buy-button" onclick="buyAsset('ses_station')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>SES Vehicle</h3>
+                <p>Cost: $150,000</p>
+                <button class="buy-button" onclick="buyAsset('ses_vehicle')">Buy</button>
+            </div>
+            <div class="asset-card">
+                <h3>SES Rescue</h3>
+                <p>Cost: $175,000</p>
+                <button class="buy-button" onclick="buyAsset('ses_rescue')">Buy</button>
+            </div>
+        </div>
+    `;
+}
+
+// Initialize when page loads
+window.onload = function() {
+    initMap();
+    loadSavedState();
+    updateDisplay();
+    // Start generating missions
+    generateMission(); // Generate first mission immediately
+    setInterval(generateMission, 60000); // Generate new mission every minute
+};
