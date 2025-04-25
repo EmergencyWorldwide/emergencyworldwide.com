@@ -1,237 +1,48 @@
-/* Ensure html/body allow percentage heights */
-html, body {
-    height: 100%;
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* Optional: prevents body scrollbars if content fits */
 }
 
-body {
-    display: flex; /* Makes percentage widths work nicely */
-    font-family: sans-serif;
+.sidebar {
+    background-color: #ffffff;
+    border-right: 2px solid #007bff;
+    height: 100vh;
+    padding: 20px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    position: fixed;
 }
 
-/* --- CRITICAL FOR MAP DISPLAY --- */
-#map {
-    height: 100%;   /* Make map full height of the body */
-    width: 70%;    /* Example: Make map take 70% of the width */
-    border-right: 2px solid #ccc; /* Just for visual separation */
-}
-/* --- END CRITICAL FOR MAP DISPLAY --- */
-
-
-#ui-panel {
-    width: 30%; /* Takes the remaining width */
-    padding: 15px;
-    box-sizing: border-box;
-    overflow-y: auto; /* Allow panel to scroll if needed */
-    height: 100%;
-    background-color: #f4f4f4;
-}
-
-
-h1, h2, h3 {
-    margin-top: 0;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 5px;
-}
-
-.section {
-    margin-bottom: 20px;
+h3 {
+    color: #007bff;
 }
 
 button {
     display: block;
     width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-    background-color: #4CAF50;
+    background-color: #007bff;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
     cursor: pointer;
-    font-size: 1em;
+    transition: background-color 0.3s;
 }
 
 button:hover {
-    background-color: #45a049;
+    background-color: #0056b3;
 }
 
-button:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
+#map {
+    margin-left: 220px; /* Adjust margin for sidebar width */
+    height: 100vh;
+    transition: margin-left 0.3s; /* Smooth transition */
 }
 
-ul {
-    list-style: none;
-    padding: 0;
-}
-
-li {
-    background-color: #fff;
-    border: 1px solid #ddd;
-    padding: 8px 8px 10px 8px; /* Adjusted padding */
-    margin-bottom: 5px;
-    border-radius: 3px;
-    font-size: 0.9em;
-}
-
-li strong {
-    display: block;
-    margin-bottom: 3px;
-    color: #333;
-}
-
-li span {
-    color: #666;
-    font-size: 0.85em;
-    display: block; /* Ensure details are on new lines */
-    margin-bottom: 3px;
-}
-
-/* Styling for vehicle list items specifically */
-.vehicle-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start; /* Align items to top */
-}
-
-.vehicle-details {
-    flex-grow: 1;
-    margin-right: 10px;
-    /* Removed align-items center if stacking controls vertically */
-}
-
-.vehicle-controls { /* New container for dropdown and action buttons */
-     display: flex;
-     flex-direction: column;
-     align-items: flex-end; /* Align controls to the right */
-     min-width: 90px; /* Ensure minimum width */
-}
-
-
-.response-mode-select {
-    padding: 4px;
-    font-size: 0.8em;
-    border-radius: 3px;
-    border: 1px solid #ccc;
-    width: 100%; /* Make dropdown fill the control container width */
-    box-sizing: border-box;
-}
-
-/* Styling for list item actions (Rename/Sell) */
-.list-item-actions {
-    margin-top: 5px;
-    display: flex; /* Arrange buttons side-by-side */
-    gap: 5px;      /* Space between buttons */
-    justify-content: flex-end; /* Align buttons to the right within their container */
-}
-
-.list-item-actions button {
-    padding: 3px 8px;
-    font-size: 0.8em;
-    width: auto; /* Buttons take their content size */
-    margin: 0; /* Remove default button margin */
-    cursor: pointer;
-}
-
-.rename-button {
-    background-color: #5bc0de; /* Info blue */
-    border: none;
-    color: white;
-    border-radius: 3px;
-}
-.rename-button:hover { background-color: #31b0d5; }
-
-.sell-button {
-    background-color: #d9534f; /* Danger red */
-    border: none;
-    color: white;
-    border-radius: 3px;
-}
-.sell-button:hover { background-color: #c9302c; }
-
-
-/* --- Mission List Styling --- */
-#mission-list li {
-    background-color: #fff9e6; /* Light yellow background */
-    border-left: 5px solid #ffa500; /* Orange border */
-}
-
-.mission-details span {
-     margin-bottom: 4px;
-}
-
-.mission-actions button {
-    padding: 5px 10px;
-    font-size: 0.85em;
-    margin-top: 5px;
-    width: auto; /* Don't make assign buttons full width */
-    background-color: #337ab7; /* Blue */
-}
-.mission-actions button:hover {
-    background-color: #286090;
-}
-.mission-actions button:disabled {
-    background-color: #cccccc;
-}
-
-
-/* --- Basic Marker Styling (Icons) --- */
-/* Building Marker (Red) */
-.building-marker {
-    background-color: rgba(217, 83, 79, 0.7); /* Reddish */
-    border: 1px solid #d9534f;
+/* Marker styles for better visibility */
+.leaflet-marker-icon {
     border-radius: 50%;
-    box-shadow: 0 0 5px rgba(0,0,0,0.5);
-    color: white;
-    text-align: center;
-    font-weight: bold;
-    line-height: 18px; /* Center text vertically */
-}
-
-/* Vehicle Marker (Blue) */
-.vehicle-marker {
-    background-color: rgba(51, 122, 183, 0.7); /* Bluish */
-    border: 1px solid #337ab7;
-    border-radius: 50%;
-    box-shadow: 0 0 5px rgba(0,0,0,0.5);
-    color: white;
-    text-align: center;
-    font-weight: bold;
-    line-height: 18px;
-}
-
-/* Mission Marker (Orange) */
-.mission-marker {
-     background-color: rgba(255, 165, 0, 0.7); /* Orange */
-    border: 1px solid #d98e00;
-    border-radius: 5%; /* Make it square-ish */
-    box-shadow: 0 0 5px rgba(0,0,0,0.5);
-    color: white;
-    text-align: center;
-    font-weight: bold;
-    line-height: 18px;
-}
-
-/* Placement Mode Status Message */
-.status-message {
-    font-weight: bold;
-    color: #337ab7; /* Blue */
-    margin-top: 5px;
-    min-height: 1.2em; /* Prevent layout jump */
-}
-
-/* Cancel Placement Button */
-.cancel-button {
-    background-color: #f0ad4e; /* Warning orange */
-    margin-top: 5px;
-}
-.cancel-button:hover {
-    background-color: #ec971f;
-}
-
-/* Cursor for map during placement */
-.map-placement-mode {
-    cursor: crosshair !important; /* Force crosshair cursor */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }

@@ -3,83 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triple Zero Dispatch Simulator</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossorigin=""/>
-    <link rel="stylesheet" href="style.css">
+    <title>Dispatch Simulator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        .control-panel {
+            margin: 15px;
+        }
+        .mission-log {
+            margin: 15px;
+        }
+        .alert {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+        }
+    </style>
 </head>
 <body>
-
-    <div id="map"></div>
-
-    <div id="ui-panel">
-        <h1>Dispatch Control</h1>
-
-        <!-- Status & Placement Info -->
-        <div class="section">
-            <h2>Status</h2>
-            <p>Money: $<span id="money-display">100000</span></p>
-            <p id="placement-status" class="status-message"></p> <!-- For placement messages -->
+<div class="alert" id="alert-message" style="display:none;"></div>
+<div class="container">
+    <div class="control-panel">
+        <h3>Select Vehicle:</h3>
+        <div class="btn-group" id="vehicle-buttons">
+            <button class="btn btn-primary" id="ambulance">Ambulance</button>
+            <button class="btn btn-danger" id="firetruck">Fire Truck</button>
+            <button class="btn btn-info" id="policecar">Police Car</button>
         </div>
-
-
-        <div class="section">
-            <h2>Purchase Buildings</h2>
-            <button id="buy-station-btn" data-cost="50000" data-type="Fire Station">
-                Buy Fire Station ($50,000)
-            </button>
-            <button id="cancel-placement-btn" class="cancel-button" style="display: none;">
-                Cancel Placement
-            </button>
-        </div>
-
-         <div class="section">
-            <h2>Purchase Vehicles</h2>
-             <button id="buy-cfa-tanker-4-btn"
-                     data-cost="25000"
-                     data-type="CFA 4.4R Heavy Tanker"
-                     data-capacity="4000"
-                     data-basetype="Tanker">
-                 Buy CFA 4.4R Tanker ($25,000)
-             </button>
-             <button id="buy-cfa-tanker-2-btn"
-                     data-cost="18000"
-                     data-type="CFA 2.5.2D Tanker"
-                     data-capacity="2500"
-                     data-basetype="Tanker">
-                 Buy CFA 2.5.2D Tanker ($18,000)
-             </button>
-            <!-- New CFA 2.4D Tanker Button -->
-             <button id="buy-cfa-tanker-24d-btn"
-                     data-cost="15000"
-                     data-type="CFA 2.4D Tanker"
-                     data-capacity="2000"
-                     data-pump="APT 50-200"
-                     data-crew="6"
-                     data-basetype="Tanker">
-                 Buy CFA 2.4D Tanker ($15,000)
-             </button>
-         </div>
-
-        <!-- Missions Section -->
-        <div class="section">
-            <h2>Active Missions</h2>
-            <ul id="mission-list"></ul>
-        </div>
-
-        <div class="section">
-            <h2>Owned Assets</h2>
-            <h3>Buildings</h3>
-            <ul id="building-list"></ul>
-            <h3>Vehicles</h3>
-            <ul id="vehicle-list"></ul>
+        <button class="btn btn-warning" id="addFireStation">Add Fire Station</button>
+        <br />
+        <h3>Assign Vehicle to Station:</h3>
+        <div class="btn-group" id="assign-buttons">
+            <button class="btn btn-success" id="assignToStation">Assign Vehicles to Station</button>
         </div>
     </div>
+    <div id="map"></div>
+    <div class="mission-log" id="mission-log">
+        <h3>Mission Log:</h3>
+        <ul id="missions"></ul>
+        <p id="rewards">Money: $0</p>
+    </div>
+</div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-            crossorigin=""></script>
-    <script src="script.js"></script>
+<script>
+    const map = L.map('map').setView([-37.8136, 144.9631], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    let selectedVehicleType = ''; // Selected vehicle type
+    let rewards = JSON.parse(localStorage.getItem('rewards')) || 500; // Starting funds
+    const missions = JSON.parse(localStorage.getItem('missions')) || [];
+    const vehicleMarkers = JSON.parse(localStorage.getItem('vehicleMarkers')) || [];
+    const fireStations = []; // Store fire station markers
+
+    const rewardsDisplay = document.getElementById('rewards');
+    const missionsList = document.getElementById('missions');
+
+    // Show alert notifications
+    function showAlert(message) {
+        const alertBox = document.getElementById('alert-message');
+        alertBox.innerHTML = message;
+        alertBox.className = 'alert alert-success';
+        alertBox.style.display = 'block';
+        setTimeout(() => {
+            alertBox.style.display = 'none';
+        }, 3000);
+    }
+
+    // Update Mission Log
+    function updateMissionLog() {
+        missionsList.innerHTML = '';
+        missions.forEach((mission, index) => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `Mission ${index + 1}: ${mission.type} - ${mission.completed ? "Completed" : "Pending"}`;
+            if (!mission.completed) {
+                listItem.innerHTML += ` <button class="btn btn-success btn-sm" onclick="dispatchVehicle(${index})">Dispatch Vehicle</button>`;
+            }
+            missionsList.appendChild(listItem);
+        });
+    }
+
+    // Generate a new mission and add a marker to the map
+    function generateMission() {
+        const missionTypes = ['medical emergency', 'fire', 'crime scene'];
+        const randomType = missionTypes[Math.floor(Math.random() * missionTypes.length)];
+        const lat = (Math.random() * (map.getBounds().getNorthEast().lat - map.getBounds().getSouthWest().lat) + map.getBounds().getSouthWest().lat);
+        const lng = (Math.random() * (map.getBounds().getNorthEast().lng - map.getBounds().getSouthWest().lng) + map.getBounds().getSouthWest().lng);
+        
+        const newMission = { lat, lng, type: randomType, completed: false };
+        missions.push(newMission);
+        localStorage.setItem('missions', JSON.stringify(missions));
+        addMissionMarker(newMission); // Add the mission marker to the map
+        updateMissionLog();
+        showAlert(`New mission created: ${randomType} at (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+    }
+
+    // Add mission marker to the map
+    function addMissionMarker(mission) {
+        const marker = L.marker([mission.lat, mission.lng]).addTo(map)
+            .bindPopup(`Mission: ${mission.type} - Pending`)
+            .openPopup();
+        mission.marker = marker; // Save reference to the marker on the mission object
+    }
+
+    // Move vehicle to a mission location with animation
+    function moveVehicleToLocation(vehicle, destination) {
+        const animationDuration = 5000; // 5 seconds for the vehicle to reach the destination
+        const startLat = vehicle.getLatLng().lat;
+        const startLng = vehicle.getLatLng().lng;
+        const endLat = destination.lat;
+        const endLng = destination.lng;
+
+        const startTime = performance.now();
+        
+        function animateVehicle(timestamp) {
+            const elapsedTime = timestamp - startTime;
+            const progress = Math.min(elapsedTime / animationDuration, 1);
+            
+            const currentLat = startLat + (endLat - startLat) * progress;
+            const currentLng = startLng + (endLng - startLng) * progress;
+
+            vehicle.setLatLng([currentLat, currentLng]);
+
+            if (progress < 1) {
+                requestAnimationFrame(animateVehicle);
+            } else {
+                showAlert(`Vehicle has arrived at the mission location.`);
+                removeMission(destination); // Clean up the mission when reached
+            }
+        }
+        requestAnimationFrame(animateVehicle);
+    }
+
+    // Dispatch a vehicle to complete a mission
+    function dispatchVehicle(missionIndex) {
+        const mission = missions[missionIndex];
+
+        if (!selectedVehicleType) {
+            showAlert("Please select a vehicle before dispatching.");
+            return;
+        }
+
+        // Use the first available fire station or a default location if none exists
+        const stationLocation = fireStations.length > 0 ? fireStations[0].getLatLng() : { lat: -37.8136, lng: 144.9631 };
+        const vehicle = L.marker(stationLocation).addTo(map)
+            .bindPopup(`${selectedVehicleType.charAt(0).toUpperCase() + selectedVehicleType.slice(1)} being dispatched!`)
+            .openPopup();
+        saveVehicleMarker(stationLocation, selectedVehicleType); // Save vehicle marker
+        
+        // Move the vehicle to the mission location
+        moveVehicleToLocation(vehicle, { lat: mission.lat, lng: mission.lng });
+
+        // Mark the mission as completed and update rewards
+        mission.completed = true;
+        rewards += 100; // Reward for completing the mission
+        localStorage.setItem('missions', JSON.stringify(missions));
+        localStorage.setItem('rewards', JSON.stringify(rewards));
+        updateMissionLog();
+        rewardsDisplay.textContent = `Money: $${rewards}`;
+        showAlert(`Mission Completed: ${mission.type} dispatched with ${selectedVehicleType}!`);
+    }
+
+    // Remove completed mission marker from the map
+    function removeMission(destination) {
+        map.eachLayer((layer) => {
+            if (layer instanceof L.Marker && layer.getLatLng().lat === destination.lat && layer.getLatLng().lng === destination.lng) {
+                map.removeLayer(layer);
+            }
+        });
+
+        const missionIndex = missions.findIndex(m => m.lat === destination.lat && m.lng === destination.lng);
+        if (missionIndex > -1) {
+            missions.splice(missionIndex, 1);
+            localStorage.setItem('missions', JSON.stringify(missions));
+            updateMissionLog();
+        }
+    }
+
+    // Save vehicle markers to local storage
+    function saveVehicleMarker(latlng, type) {
+        vehicleMarkers.push({ latlng, type });
+        localStorage.setItem('vehicleMarkers', JSON.stringify(vehicleMarkers));
+    }
+
+    // Load markers from local storage when the app starts
+    function loadMarkers() {
+        vehicleMarkers.forEach(vehicle => {
+            L.marker(vehicle.latlng).addTo(map)
+                .bindPopup(`${vehicle.type.charAt(0).toUpperCase() + vehicle.type.slice(1)}`)
+                .openPopup();
+        });
+    }
+
+    // Add fire station on the map
+    document.getElementById('addFireStation').onclick = function() {
+        const fireStation = L.marker(map.getCenter(), { 
+            icon: L.icon({ iconUrl: 'https://img.icons8.com/color/48/000000/fire-station.png', iconSize: [30, 30] }) 
+        }).addTo(map)
+        .bindPopup("Fire Station added")
+        .openPopup();
+        
+        fireStations.push(fireStation);
+        showAlert("Fire Station Added!");
+    };
+
+    // Assign selected vehicles to fire station
+    document.getElementById('assignToStation').onclick = function() {
+        if (fireStations.length === 0) {
+            showAlert("No fire stations available to assign vehicles to.");
+            return;
+        }
+
+        if (!selectedVehicleType) {
+            showAlert("Please select a vehicle from the available options.");
+            return;
+        }
+
+        // For demonstration, we simply announce the assignment to the first station.
+        showAlert(`Assigned ${selectedVehicleType.charAt(0).toUpperCase() + selectedVehicleType.slice(1)} to the first fire station.`);
+        // Additional code could link this vehicle to the station for future functionality
+    };
+
+    // Vehicle dispatch handlers
+    document.getElementById('ambulance').onclick = () => { selectedVehicleType = 'ambulance'; };
+    document.getElementById('firetruck').onclick = () => { selectedVehicleType = 'firetruck'; };
+    document.getElementById('policecar').onclick = () => { selectedVehicleType = 'policecar'; };
+
+    map.on('click', function(e) {
+        if (selectedVehicleType !== '') {
+            const marker = L.marker(e.latlng).addTo(map)
+                .bindPopup(`${selectedVehicleType.charAt(0).toUpperCase() + selectedVehicleType.slice(1)}`)
+                .openPopup();
+            saveVehicleMarker(e.latlng, selectedVehicleType); // Save to local storage
+            
+            // Reset the vehicle selection after placing
+            selectedVehicleType = '';
+        }
+    });
+
+    // Generate missions and attempt to complete them every minute
+    setInterval(() => {
+        generateMission(); // Randomly create a new mission
+    }, 60000); // 60000 ms = 1 minute
+
+    // Initial UI Setup
+    rewardsDisplay.textContent = `Money: $${rewards}`;
+    updateMissionLog();
+    loadMarkers(); // Load existing vehicle markers
+
+</script>
 </body>
 </html>
