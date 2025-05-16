@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dial-911 Simulator</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
     <header>
@@ -16,21 +16,32 @@
         </nav>
     </header>
     
-    <div id="map" style="height: 400px;"></div>
+    <div id="map"></div>
     
-    <div id="controls">
-        <h2>Emergency Vehicles & Buildings</h2>
-        <button onclick="buyVehicle('ambulance')">Buy Ambulance</button>
-        <button onclick="buyVehicle('firetruck')">Buy Fire Truck</button>
-        <button onclick="buyBuilding('hospital')">Buy Hospital</button>
-        <button onclick="buyBuilding('fire_station')">Buy Fire Station</button>
-    </div>
-    
-    <div id="missions">
-        <h2>Missions</h2>
-        <button onclick="createMission('Mission 1')">Create Mission 1</button>
-        <button onclick="createMission('Mission 2')">Create Mission 2</button>
-        <div id="missionList"></div>
+    <div class="flex-container">
+        <div class="card flex-item">
+            <h2>Emergency Vehicles & Buildings</h2>
+            <button onclick="selectItem('ambulance')">🚑 Select Ambulance</button>
+            <button onclick="selectItem('firetruck')">🚒 Select Fire Truck</button>
+            <button onclick="selectItem('hospital')">🏥 Select Hospital</button>
+            <button onclick="selectItem('fire_station')">🚒 Select Fire Station</button>
+            <button onclick="buyVehicle('ambulance')">🚑 Buy Ambulance</button>
+            <button onclick="buyVehicle('firetruck')">🚒 Buy Fire Truck</button>
+            <button onclick="buyBuilding('hospital')">🏥 Buy Hospital</button>
+            <button onclick="buyBuilding('fire_station')">🚒 Buy Fire Station</button>
+        </div>
+        
+        <div class="card flex-item">
+            <h2>Missions</h2>
+            <button onclick="createMission('Mission 1')">Create Mission 1</button>
+            <button onclick="createMission('Mission 2')">Create Mission 2</button>
+            <div id="missionList"></div>
+        </div>
+
+        <div class="card flex-item">
+            <h2>Leaderboard</h2>
+            <div id="leaderboard"></div>
+        </div>
     </div>
 
     <script src="script.js"></script>
