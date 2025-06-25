@@ -1,0 +1,47 @@
+body {
+    padding-top: 56px;
+}
+
+#map {
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.sidebar {
+    padding: 20px;
+    background-color: #f8f9fa;
+    height: 600px;
+    overflow-y: auto;
+}
+
+.budget-info {
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.actions {
+    margin-top: 20px;
+}
+
+.card {
+    margin-bottom: 20px;
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+#ownedBuildings, #ownedVehicles {
+    margin-top: 20px;
+}
+
+.building-info, .vehicle-info {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
